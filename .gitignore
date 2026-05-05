@@ -1,0 +1,22 @@
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+.env
+.idea/
+.vscode/
+vendor/
+data/
+minio-data/
+postgres-data/
+
+# Documentation files (except README)
+*.md
+!README.md
+
+# Proto repository
+DormOS-proto/

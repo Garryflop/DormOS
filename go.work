@@ -1,0 +1,10 @@
+go 1.25.5
+
+use (
+	./api-gateway
+	./auth-service
+	./file-service
+	./issue-service
+	./notification-service
+	./pkg
+)
