@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 
-	"github.com/Garryflop/DormManage/file-service/internal/config"
-	"github.com/Garryflop/DormManage/file-service/internal/repository"
-	"github.com/Garryflop/DormManage/file-service/internal/storage"
+	"github.com/Garryflop/DormManage/room-service/internal/config"
+	"github.com/Garryflop/DormManage/room-service/internal/handler"
+	"github.com/Garryflop/DormManage/room-service/internal/repository"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/nats-io/nats.go"
 	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -18,12 +20,13 @@ import (
 func main() {
 	cfg := config.Load()
 
-	// ── Postgres ───────────────────────────────────────────────
+	// ── Postgres ──────────────────────────────────────────────
 	db, err := pgxpool.New(context.Background(), cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("Failed to connect to Postgres: %v", err)
 	}
 	defer db.Close()
+
 	if err := db.Ping(context.Background()); err != nil {
 		log.Fatalf("Postgres ping failed: %v", err)
 	}
@@ -40,25 +43,19 @@ func main() {
 	}
 	log.Println("✓ Connected to Redis")
 
-	// ── MinIO ──────────────────────────────────────────────────
-	minioStorage, err := storage.NewMinioStorage(
-		cfg.MinioEndpoint,
-		cfg.MinioAccessKey,
-		cfg.MinioSecretKey,
-		cfg.MinioBucket,
-		cfg.MinioUseSSL,
-	)
+	// ── NATS ───────────────────────────────────────────────────
+	nc, err := nats.Connect(cfg.NatsURL)
 	if err != nil {
-		log.Fatalf("Failed to connect to MinIO: %v", err)
+		// Non-fatal: log warning and continue without NATS
+		log.Printf("⚠ NATS connection failed (events disabled): %v", err)
+	} else {
+		log.Println("✓ Connected to NATS")
+		defer nc.Close()
 	}
-	log.Println("✓ Connected to MinIO")
 
 	// ── Wire up layers ─────────────────────────────────────────
-	repo := repository.NewFileRepository(db)
-	_ = repo
-	_ = minioStorage
-	_ = rdb
-	// TODO: Register generated FileService server here once DormOS-gen-go is imported
+	repo := repository.NewRoomRepository(db)
+	h := handler.NewRoomHandler(repo, rdb, nc)
 
 	// ── gRPC Server ────────────────────────────────────────────
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", cfg.GRPCPort))
@@ -70,15 +67,26 @@ func main() {
 		grpc.ChainUnaryInterceptor(loggingInterceptor),
 	)
 
+	// TODO: Register generated RoomService server here once DormOS-gen-go is imported
+	// roomv1.RegisterRoomServiceServer(grpcServer, h)
+	_ = h // suppress unused warning until generated code is available
+
+	// Enable gRPC server reflection (useful for grpcurl testing)
 	reflection.Register(grpcServer)
 
-	log.Printf("✓ File Service gRPC listening on :%s", cfg.GRPCPort)
+	log.Printf("✓ Room Service gRPC listening on :%s", cfg.GRPCPort)
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("Failed to serve: %v", err)
 	}
+
+	_ = os.Getenv // ensure os is used
 }
 
 func loggingInterceptor(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
-	log.Printf("[file-service] → %s", info.FullMethod)
-	return handler(ctx, req)
+	log.Printf("[room-service] → %s", info.FullMethod)
+	resp, err := handler(ctx, req)
+	if err != nil {
+		log.Printf("[room-service] ✗ %s: %v", info.FullMethod, err)
+	}
+	return resp, err
 }
