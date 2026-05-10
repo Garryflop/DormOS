@@ -14,7 +14,7 @@ data/
 minio-data/
 postgres-data/
 
-# Documentation files (except README)
+# Documentation files 
 *.md
 !README.md
 
