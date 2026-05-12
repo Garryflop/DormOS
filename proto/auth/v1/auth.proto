@@ -1,0 +1,121 @@
+syntax = "proto3";
+
+package auth.v1;
+
+option go_package = "github.com/Garryflop/DormOS/gen/proto/auth/v1;authv1";
+
+// ─────────────────────────────────────────────
+//  Auth & Identity Service
+//  Owner: Diasbek
+// ─────────────────────────────────────────────
+
+service AuthService {
+  // Register a new user (student, floor_warden, dorm_admin, finance)
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+
+  // Authenticate and receive JWT access + refresh tokens
+  rpc Login(LoginRequest) returns (LoginResponse);
+
+  // Validate a JWT access token — called by API Gateway on every request
+  rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
+
+  // Retrieve full user profile by ID
+  rpc GetUserProfile(GetUserProfileRequest) returns (UserProfileResponse);
+
+  // Refresh access token using a refresh token
+  rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
+
+  // Logout — revoke refresh token
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
+}
+
+// ─── Register ───────────────────────────────
+
+message RegisterRequest {
+  string email       = 1; // University email
+  string password    = 2; // Plaintext (hashed server-side with bcrypt)
+  string full_name   = 3;
+  string role        = 4; // "student" | "floor_warden" | "dorm_admin" | "finance"
+  string dorm_id     = 5; // UUID — which dormitory
+  string room_number = 6; // Optional; relevant for students
+  int32  floor       = 7; // Optional
+}
+
+message RegisterResponse {
+  string user_id    = 1;
+  string email      = 2;
+  string role       = 3;
+  string created_at = 4; // RFC3339
+}
+
+// ─── Login ──────────────────────────────────
+
+message LoginRequest {
+  string email    = 1;
+  string password = 2;
+}
+
+message LoginResponse {
+  string access_token        = 1; // Short-lived JWT (15 min)
+  string refresh_token       = 2; // Long-lived (7 days)
+  int64  access_token_expiry = 3; // Unix timestamp
+  UserProfile user           = 4;
+}
+
+// ─── ValidateToken ──────────────────────────
+
+message ValidateTokenRequest {
+  string access_token = 1;
+}
+
+message ValidateTokenResponse {
+  bool   valid   = 1;
+  string user_id = 2;
+  string role    = 3;
+  string dorm_id = 4; // Tenant isolation
+  string email   = 5;
+}
+
+// ─── GetUserProfile ─────────────────────────
+
+message GetUserProfileRequest {
+  string user_id = 1;
+}
+
+message UserProfileResponse {
+  UserProfile profile = 1;
+}
+
+message UserProfile {
+  string user_id      = 1;
+  string email        = 2;
+  string full_name    = 3;
+  string role         = 4;
+  string dorm_id      = 5;
+  string room_number  = 6;
+  int32  floor        = 7;
+  bool   is_active    = 8;
+  string created_at   = 9;
+}
+
+// ─── RefreshToken ───────────────────────────
+
+message RefreshTokenRequest {
+  string refresh_token = 1;
+}
+
+message RefreshTokenResponse {
+  string access_token        = 1;
+  string refresh_token       = 2; // Rotated
+  int64  access_token_expiry = 3;
+}
+
+// ─── Logout ─────────────────────────────────
+
+message LogoutRequest {
+  string refresh_token = 1;
+}
+
+message LogoutResponse {
+  bool success = 1;
+}
