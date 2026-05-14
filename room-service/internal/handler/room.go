@@ -87,7 +87,7 @@ func (h *RoomHandler) AssignResident(ctx context.Context, userID, roomID string)
 	}
 
 	// Invalidate room cache
-	h.rdb.Del(ctx, fmt.Sprintf("rooms:floor:0"))
+	h.rdb.Del(ctx, "rooms:floor:0")
 
 	return resident.ID, nil
 }
