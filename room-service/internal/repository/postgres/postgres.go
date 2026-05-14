@@ -1,39 +1,24 @@
-package repository
+package postgres
 
 import (
 	"context"
 	"fmt"
 
+	"github.com/Garryflop/DormManage/room-service/internal/domain"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
-
-type Room struct {
-	ID         string
-	RoomNumber string
-	Floor      int
-	Capacity   int
-}
-
-type Resident struct {
-	ID         string
-	UserID     string
-	RoomID     string
-	RoomNumber string
-	Role       string
-	CheckInAt  int64
-}
 
 type RoomRepository struct {
 	db *pgxpool.Pool
 }
 
-func NewRoomRepository(db *pgxpool.Pool) *RoomRepository {
+func NewRoomRepository(db *pgxpool.Pool) domain.RoomRepository {
 	return &RoomRepository{db: db}
 }
 
-func (r *RoomRepository) CreateRoom(ctx context.Context, roomNumber string, floor, capacity int) (*Room, error) {
-	room := &Room{}
+func (r *RoomRepository) CreateRoom(ctx context.Context, roomNumber string, floor, capacity int) (*domain.Room, error) {
+	room := &domain.Room{}
 	err := r.db.QueryRow(ctx,
 		`INSERT INTO rooms (room_number, floor, capacity) VALUES ($1, $2, $3) RETURNING id, room_number, floor, capacity`,
 		roomNumber, floor, capacity,
@@ -44,8 +29,8 @@ func (r *RoomRepository) CreateRoom(ctx context.Context, roomNumber string, floo
 	return room, nil
 }
 
-func (r *RoomRepository) GetRoom(ctx context.Context, roomID string) (*Room, error) {
-	room := &Room{}
+func (r *RoomRepository) GetRoom(ctx context.Context, roomID string) (*domain.Room, error) {
+	room := &domain.Room{}
 	err := r.db.QueryRow(ctx,
 		`SELECT id, room_number, floor, capacity FROM rooms WHERE id = $1`,
 		roomID,
@@ -56,7 +41,7 @@ func (r *RoomRepository) GetRoom(ctx context.Context, roomID string) (*Room, err
 	return room, nil
 }
 
-func (r *RoomRepository) ListRooms(ctx context.Context, floor int) ([]*Room, error) {
+func (r *RoomRepository) ListRooms(ctx context.Context, floor int) ([]*domain.Room, error) {
 	query := `SELECT id, room_number, floor, capacity FROM rooms`
 	args := []any{}
 	if floor > 0 {
@@ -71,9 +56,9 @@ func (r *RoomRepository) ListRooms(ctx context.Context, floor int) ([]*Room, err
 	}
 	defer rows.Close()
 
-	var rooms []*Room
+	var rooms []*domain.Room
 	for rows.Next() {
-		room := &Room{}
+		room := &domain.Room{}
 		if err := rows.Scan(&room.ID, &room.RoomNumber, &room.Floor, &room.Capacity); err != nil {
 			return nil, err
 		}
@@ -82,8 +67,8 @@ func (r *RoomRepository) ListRooms(ctx context.Context, floor int) ([]*Room, err
 	return rooms, nil
 }
 
-func (r *RoomRepository) AssignResident(ctx context.Context, userID, roomID string) (*Resident, error) {
-	resident := &Resident{}
+func (r *RoomRepository) AssignResident(ctx context.Context, userID, roomID string) (*domain.Resident, error) {
+	resident := &domain.Resident{}
 	var checkInAt int64
 	err := r.db.QueryRow(ctx,
 		`INSERT INTO residents (user_id, room_id) VALUES ($1, $2)
@@ -102,8 +87,8 @@ func (r *RoomRepository) RemoveResident(ctx context.Context, userID string) erro
 	return err
 }
 
-func (r *RoomRepository) GetResident(ctx context.Context, userID string) (*Resident, error) {
-	res := &Resident{}
+func (r *RoomRepository) GetResident(ctx context.Context, userID string) (*domain.Resident, error) {
+	res := &domain.Resident{}
 	err := r.db.QueryRow(ctx,
 		`SELECT r.id, r.user_id, r.room_id, ro.room_number, r.role, EXTRACT(EPOCH FROM r.check_in_at)::bigint
 		 FROM residents r JOIN rooms ro ON ro.id = r.room_id
@@ -116,7 +101,7 @@ func (r *RoomRepository) GetResident(ctx context.Context, userID string) (*Resid
 	return res, nil
 }
 
-func (r *RoomRepository) ListResidents(ctx context.Context, roomID, role string) ([]*Resident, error) {
+func (r *RoomRepository) ListResidents(ctx context.Context, roomID, role string) ([]*domain.Resident, error) {
 	query := `SELECT r.id, r.user_id, r.room_id, ro.room_number, r.role, EXTRACT(EPOCH FROM r.check_in_at)::bigint
 	          FROM residents r JOIN rooms ro ON ro.id = r.room_id WHERE 1=1`
 	args := []any{}
@@ -137,9 +122,9 @@ func (r *RoomRepository) ListResidents(ctx context.Context, roomID, role string)
 	}
 	defer rows.Close()
 
-	var list []*Resident
+	var list []*domain.Resident
 	for rows.Next() {
-		res := &Resident{}
+		res := &domain.Resident{}
 		if err := rows.Scan(&res.ID, &res.UserID, &res.RoomID, &res.RoomNumber, &res.Role, &res.CheckInAt); err != nil {
 			return nil, err
 		}
@@ -153,33 +138,32 @@ func (r *RoomRepository) UpdateResidentRole(ctx context.Context, userID, role st
 	return err
 }
 
-func (r *RoomRepository) GetDashboardStats(ctx context.Context) (totalResidents, totalRooms, occupiedRooms, availableBeds int, err error) {
-	err = r.db.QueryRow(ctx, `SELECT COUNT(*) FROM residents`).Scan(&totalResidents)
+func (r *RoomRepository) GetDashboardStats(ctx context.Context) (*domain.DashboardStats, error) {
+	var totalResidents, totalRooms, occupiedRooms int
+	err := r.db.QueryRow(ctx, `SELECT COUNT(*) FROM residents`).Scan(&totalResidents)
 	if err != nil {
-		return
+		return nil, err
 	}
 	var totalCapacity int
 	err = r.db.QueryRow(ctx, `SELECT COUNT(*), COALESCE(SUM(capacity), 0) FROM rooms`).Scan(&totalRooms, &totalCapacity)
 	if err != nil {
-		return
+		return nil, err
 	}
 	err = r.db.QueryRow(ctx, `SELECT COUNT(DISTINCT room_id) FROM residents`).Scan(&occupiedRooms)
 	if err != nil {
-		return
+		return nil, err
 	}
-	availableBeds = totalCapacity - totalResidents
-	return
-}
-
-// CountResidentsByRoom returns the number of residents in a room
-func (r *RoomRepository) CountResidentsByRoom(ctx context.Context, roomID string) (int, error) {
-	var count int
-	err := r.db.QueryRow(ctx, `SELECT COUNT(*) FROM residents WHERE room_id = $1`, roomID).Scan(&count)
-	return count, err
+	
+	return &domain.DashboardStats{
+		TotalResidents: totalResidents,
+		TotalRooms:     totalRooms,
+		OccupiedRooms:  occupiedRooms,
+		AvailableBeds:  totalCapacity - totalResidents,
+	}, nil
 }
 
 // GetResidentsByRoom returns all residents for a specific room
-func (r *RoomRepository) GetResidentsByRoom(ctx context.Context, roomID string) ([]*Resident, error) {
+func (r *RoomRepository) GetResidentsByRoom(ctx context.Context, roomID string) ([]*domain.Resident, error) {
 	rows, err := r.db.Query(ctx,
 		`SELECT id, user_id, room_id, role, EXTRACT(EPOCH FROM check_in_at)::bigint FROM residents WHERE room_id = $1`,
 		roomID,
@@ -188,9 +172,9 @@ func (r *RoomRepository) GetResidentsByRoom(ctx context.Context, roomID string) 
 		return nil, err
 	}
 	defer rows.Close()
-	var list []*Resident
+	var list []*domain.Resident
 	for rows.Next() {
-		res := &Resident{}
+		res := &domain.Resident{}
 		if err := rows.Scan(&res.ID, &res.UserID, &res.RoomID, &res.Role, &res.CheckInAt); err != nil {
 			return nil, err
 		}

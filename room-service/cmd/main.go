@@ -8,17 +8,31 @@ import (
 	"os"
 
 	"github.com/Garryflop/DormManage/room-service/internal/config"
-	"github.com/Garryflop/DormManage/room-service/internal/handler"
-	"github.com/Garryflop/DormManage/room-service/internal/repository"
+	"github.com/Garryflop/DormManage/room-service/internal/repository/postgres"
+	transport "github.com/Garryflop/DormManage/room-service/internal/transport/grpc"
+	"github.com/Garryflop/DormManage/room-service/internal/usecase"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nats-io/nats.go"
 	"github.com/redis/go-redis/v9"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
 
 func main() {
 	cfg := config.Load()
+
+	// ── OpenTelemetry ──────────────────────────────────────────
+	otelEndpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+	if otelEndpoint == "" {
+		otelEndpoint = "otel-collector:4317"
+	}
+	shutdown, err := config.InitOpenTelemetry(context.Background(), "room-service", otelEndpoint)
+	if err != nil {
+		log.Printf("⚠ Failed to init OpenTelemetry: %v", err)
+	} else {
+		defer shutdown(context.Background())
+	}
 
 	// ── Postgres ──────────────────────────────────────────────
 	db, err := pgxpool.New(context.Background(), cfg.DatabaseURL)
@@ -46,16 +60,16 @@ func main() {
 	// ── NATS ───────────────────────────────────────────────────
 	nc, err := nats.Connect(cfg.NatsURL)
 	if err != nil {
-		// Non-fatal: log warning and continue without NATS
 		log.Printf("⚠ NATS connection failed (events disabled): %v", err)
 	} else {
 		log.Println("✓ Connected to NATS")
 		defer nc.Close()
 	}
 
-	// ── Wire up layers ─────────────────────────────────────────
-	repo := repository.NewRoomRepository(db)
-	h := handler.NewRoomHandler(repo, rdb, nc)
+	// ── Clean Architecture Wiring ──────────────────────────────
+	repo := postgres.NewRoomRepository(db)
+	uc := usecase.NewRoomUseCase(repo, rdb, nc)
+	h := transport.NewRoomHandler(uc)
 
 	// ── gRPC Server ────────────────────────────────────────────
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", cfg.GRPCPort))
@@ -64,6 +78,7 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer(
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 		grpc.ChainUnaryInterceptor(loggingInterceptor),
 	)
 
@@ -71,15 +86,13 @@ func main() {
 	// roomv1.RegisterRoomServiceServer(grpcServer, h)
 	_ = h // suppress unused warning until generated code is available
 
-	// Enable gRPC server reflection (useful for grpcurl testing)
+	// Enable gRPC server reflection
 	reflection.Register(grpcServer)
 
 	log.Printf("✓ Room Service gRPC listening on :%s", cfg.GRPCPort)
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("Failed to serve: %v", err)
 	}
-
-	_ = os.Getenv // ensure os is used
 }
 
 func loggingInterceptor(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
