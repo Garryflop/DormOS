@@ -13,10 +13,10 @@ import (
 	"github.com/nats-io/nats.go"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/Garryflop/DormOS/auth-service/internal/cache"
-	"github.com/Garryflop/DormOS/auth-service/internal/config"
-	"github.com/Garryflop/DormOS/auth-service/internal/domain"
-	"github.com/Garryflop/DormOS/auth-service/internal/repository"
+	"github.com/Garryflop/DormManage/auth-service/internal/cache"
+	"github.com/Garryflop/DormManage/auth-service/internal/config"
+	"github.com/Garryflop/DormManage/auth-service/internal/domain"
+	"github.com/Garryflop/DormManage/auth-service/internal/repository"
 )
 
 type AuthService struct {

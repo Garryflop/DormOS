@@ -9,9 +9,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/Garryflop/DormOS/auth-service/internal/domain"
-	"github.com/Garryflop/DormOS/auth-service/internal/service"
-	authv1 "github.com/Garryflop/DormOS/gen/proto/auth/v1"
+	"github.com/Garryflop/DormManage/auth-service/internal/domain"
+	"github.com/Garryflop/DormManage/auth-service/internal/service"
+	authv1 "github.com/Garryflop/DormOS-gen-go/auth/v1"
 )
 
 type Server struct {

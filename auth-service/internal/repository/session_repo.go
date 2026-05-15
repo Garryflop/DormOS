@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/Garryflop/DormOS/auth-service/internal/domain"
+	"github.com/Garryflop/DormManage/auth-service/internal/domain"
 )
 
 type SessionRepository struct {
