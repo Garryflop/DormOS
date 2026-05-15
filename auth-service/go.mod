@@ -1,6 +1,6 @@
 module github.com/Garryflop/DormManage/auth-service
 
-go 1.25.5
+go 1.25.0
 
 require (
 	github.com/Garryflop/DormOS-gen-go v0.0.0-20260514153756-e6581b794821

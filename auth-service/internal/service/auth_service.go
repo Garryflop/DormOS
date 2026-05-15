@@ -205,7 +205,12 @@ func (s *AuthService) ValidateToken(ctx context.Context, tokenString string) (*T
 		}
 	}
 
-	return claims, nil
+	return &TokenClaims{
+		UserID: claims.UserID,
+		Role:   claims.Role,
+		DormID: claims.DormID,
+		Email:  claims.Email,
+	}, nil
 }
 
 type RefreshResult struct {
