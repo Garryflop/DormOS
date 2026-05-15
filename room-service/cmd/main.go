@@ -11,6 +11,7 @@ import (
 	"github.com/Garryflop/DormManage/room-service/internal/repository/postgres"
 	transport "github.com/Garryflop/DormManage/room-service/internal/transport/grpc"
 	"github.com/Garryflop/DormManage/room-service/internal/usecase"
+	roomv1 "github.com/Garryflop/DormOS-gen-go/room/v1"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nats-io/nats.go"
 	"github.com/redis/go-redis/v9"
@@ -82,9 +83,8 @@ func main() {
 		grpc.ChainUnaryInterceptor(loggingInterceptor),
 	)
 
-	// TODO: Register generated RoomService server here once DormOS-gen-go is imported
-	// roomv1.RegisterRoomServiceServer(grpcServer, h)
-	_ = h // suppress unused warning until generated code is available
+	// Register generated RoomService server
+	roomv1.RegisterRoomServiceServer(grpcServer, h)
 
 	// Enable gRPC server reflection
 	reflection.Register(grpcServer)

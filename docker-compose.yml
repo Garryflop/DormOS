@@ -54,13 +54,6 @@ services:
       timeout: 5s
       retries: 5
 
-volumes:
-  postgres-data:
-  redis-data:
-  minio-data:
-  prometheus-data:
-  grafana-data:
-
   api-gateway:
     build:
       context: .
@@ -170,3 +163,10 @@ volumes:
       - prometheus
       - tempo
       - loki
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:
+  prometheus-data:
+  grafana-data:

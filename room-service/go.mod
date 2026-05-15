@@ -3,6 +3,7 @@ module github.com/Garryflop/DormManage/room-service
 go 1.25.5
 
 require (
+	github.com/Garryflop/DormOS-gen-go v0.0.0-20260515095844-d50d72e4f78e
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/nats-io/nats.go v1.52.0
@@ -13,7 +14,7 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.43.0
 	go.opentelemetry.io/otel/sdk v1.43.0
 	go.opentelemetry.io/otel/sdk/metric v1.43.0
-	google.golang.org/grpc v1.81.0
+	google.golang.org/grpc v1.81.1
 )
 
 require (
