@@ -6,7 +6,7 @@ bin/
 *.dylib
 *.test
 *.out
-notification-service/.env
+.env
 .idea/
 .vscode/
 vendor/
