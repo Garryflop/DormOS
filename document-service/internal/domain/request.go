@@ -26,24 +26,6 @@ const (
 	StepSkipped  StepStatus = "skipped"
 )
 
-type WorkflowStepDef struct {
-	StepNumber   int     `json:"step_number"`
-	ApproverRole string  `json:"approver_role"`
-	ApproverID   *string `json:"approver_id"`
-	SLAHours     int     `json:"sla_hours"`
-}
-
-type WorkflowDefinition struct {
-	ID           uuid.UUID
-	DocumentType string
-	Name         string
-	Description  string
-	Steps        []WorkflowStepDef
-	IsActive     bool
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-}
-
 type DocumentRequest struct {
 	ID           uuid.UUID
 	StudentID    uuid.UUID
@@ -55,19 +37,6 @@ type DocumentRequest struct {
 	SubmittedAt  time.Time
 	CompletedAt  *time.Time
 	DormID       uuid.UUID
-}
-
-type ApprovalStep struct {
-	ID              uuid.UUID
-	RequestID       uuid.UUID
-	StepNumber      int
-	ApproverRole    string
-	ApproverID      *uuid.UUID
-	Status          StepStatus
-	DecidedBy       *uuid.UUID
-	DecisionComment string
-	DecidedAt       *time.Time
-	CreatedAt       time.Time
 }
 
 var (
