@@ -2,157 +2,66 @@ package grpc
 
 import (
 	"context"
-	"errors"
 
+	authv1 "github.com/Garryflop/DormOS-gen-go/auth/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	"github.com/google/uuid"
-
-	"github.com/Garryflop/DormManage/auth-service/internal/domain"
-	"github.com/Garryflop/DormManage/auth-service/internal/service"
-	authv1 "github.com/Garryflop/DormOS-gen-go/auth/v1"
 )
 
-type Server struct {
+// AuthServer is a dummy implementation to silence compilation errors.
+// Diasbek needs to implement the actual logic here.
+type AuthServer struct {
 	authv1.UnimplementedAuthServiceServer
-	svc *service.AuthService
 }
 
-func NewServer(svc *service.AuthService) *Server {
-	return &Server{svc: svc}
+func NewAuthServer() *AuthServer {
+	return &AuthServer{}
 }
 
-func (s *Server) Register(ctx context.Context, req *authv1.RegisterRequest) (*authv1.RegisterResponse, error) {
-	dormID, err := uuid.Parse(req.DormId)
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid dorm_id: %v", err)
-	}
-
-	input := domain.RegisterInput{
-		Email:      req.Email,
-		Password:   req.Password,
-		FullName:   req.FullName,
-		Role:       domain.Role(req.Role),
-		DormID:     dormID,
-		RoomNumber: req.RoomNumber,
-		Floor:      int(req.Floor),
-	}
-
-	result, err := s.svc.Register(ctx, input)
-	if err != nil {
-		return nil, mapError(err)
-	}
-
-	return &authv1.RegisterResponse{
-		UserId:    result.User.ID.String(),
-		Email:     result.User.Email,
-		Role:      string(result.User.Role),
-		CreatedAt: result.User.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-	}, nil
+func (s *AuthServer) Register(ctx context.Context, req *authv1.RegisterRequest) (*authv1.RegisterResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Register not implemented")
 }
 
-func (s *Server) Login(ctx context.Context, req *authv1.LoginRequest) (*authv1.LoginResponse, error) {
-	result, err := s.svc.Login(ctx, req.Email, req.Password)
-	if err != nil {
-		return nil, mapError(err)
-	}
-
-	return &authv1.LoginResponse{
-		AccessToken:       result.AccessToken,
-		RefreshToken:      result.RefreshToken,
-		AccessTokenExpiry: result.AccessTokenExpiry.Unix(),
-		User:              toProtoProfile(result.User),
-	}, nil
+func (s *AuthServer) Login(ctx context.Context, req *authv1.LoginRequest) (*authv1.LoginResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Login not implemented")
 }
 
-func (s *Server) ValidateToken(ctx context.Context, req *authv1.ValidateTokenRequest) (*authv1.ValidateTokenResponse, error) {
-	claims, err := s.svc.ValidateToken(ctx, req.AccessToken)
-	if err != nil {
-		return &authv1.ValidateTokenResponse{Valid: false}, nil
-	}
-
-	return &authv1.ValidateTokenResponse{
-		Valid:  true,
-		UserId: claims.UserID,
-		Role:   claims.Role,
-		DormId: claims.DormID,
-		Email:  claims.Email,
-	}, nil
+func (s *AuthServer) ResetPasswordRequest(ctx context.Context, req *authv1.ResetPasswordRequestRequest) (*authv1.ResetPasswordRequestResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResetPasswordRequest not implemented")
 }
 
-func (s *Server) GetUserProfile(ctx context.Context, req *authv1.GetUserProfileRequest) (*authv1.UserProfileResponse, error) {
-	userID, err := uuid.Parse(req.UserId)
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid user_id: %v", err)
-	}
-
-	user, err := s.svc.GetUserProfile(ctx, userID)
-	if err != nil {
-		return nil, mapError(err)
-	}
-
-	return &authv1.UserProfileResponse{Profile: toProtoProfile(user)}, nil
+func (s *AuthServer) ResetPasswordConfirm(ctx context.Context, req *authv1.ResetPasswordConfirmRequest) (*authv1.ResetPasswordConfirmResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResetPasswordConfirm not implemented")
 }
 
-func (s *Server) RefreshToken(ctx context.Context, req *authv1.RefreshTokenRequest) (*authv1.RefreshTokenResponse, error) {
-	result, err := s.svc.RefreshToken(ctx, req.RefreshToken)
-	if err != nil {
-		return nil, mapError(err)
-	}
-
-	return &authv1.RefreshTokenResponse{
-		AccessToken:       result.AccessToken,
-		RefreshToken:      result.RefreshToken,
-		AccessTokenExpiry: result.AccessTokenExpiry.Unix(),
-	}, nil
+func (s *AuthServer) ValidateToken(ctx context.Context, req *authv1.ValidateTokenRequest) (*authv1.ValidateTokenResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ValidateToken not implemented")
 }
 
-func (s *Server) Logout(ctx context.Context, req *authv1.LogoutRequest) (*authv1.LogoutResponse, error) {
-	if err := s.svc.Logout(ctx, req.RefreshToken); err != nil {
-		return nil, mapError(err)
-	}
-	return &authv1.LogoutResponse{Success: true}, nil
+func (s *AuthServer) RefreshToken(ctx context.Context, req *authv1.RefreshTokenRequest) (*authv1.RefreshTokenResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RefreshToken not implemented")
 }
 
-func toProtoProfile(u *domain.User) *authv1.UserProfile {
-	return &authv1.UserProfile{
-		UserId:     u.ID.String(),
-		Email:      u.Email,
-		FullName:   u.FullName,
-		Role:       string(u.Role),
-		DormId:     u.DormID.String(),
-		RoomNumber: u.RoomNumber,
-		Floor:      int32(u.Floor),
-		IsActive:   u.IsActive,
-		CreatedAt:  u.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-	}
+func (s *AuthServer) Logout(ctx context.Context, req *authv1.LogoutRequest) (*authv1.LogoutResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Logout not implemented")
 }
 
-func mapError(err error) error {
-	switch {
-	case errors.Is(err, domain.ErrEmailTaken):
-		return status.Errorf(codes.AlreadyExists, err.Error())
-	case errors.Is(err, domain.ErrUserNotFound):
-		return status.Errorf(codes.NotFound, err.Error())
-	case errors.Is(err, domain.ErrInvalidPassword):
-		return status.Errorf(codes.Unauthenticated, "invalid credentials")
-	case errors.Is(err, domain.ErrAccountInactive):
-		return status.Errorf(codes.PermissionDenied, err.Error())
-	case errors.Is(err, domain.ErrInvalidToken):
-		return status.Errorf(codes.Unauthenticated, err.Error())
-	case errors.Is(err, domain.ErrSessionNotFound),
-		errors.Is(err, domain.ErrSessionRevoked),
-		errors.Is(err, domain.ErrSessionExpired):
-		return status.Errorf(codes.Unauthenticated, err.Error())
-	case errors.Is(err, domain.ErrEmailRequired),
-		errors.Is(err, domain.ErrPasswordRequired),
-		errors.Is(err, domain.ErrPasswordTooShort),
-		errors.Is(err, domain.ErrFullNameRequired),
-		errors.Is(err, domain.ErrInvalidRole),
-		errors.Is(err, domain.ErrDormIDRequired):
-		return status.Errorf(codes.InvalidArgument, err.Error())
-	default:
-		return status.Errorf(codes.Internal, "internal server error")
-	}
+func (s *AuthServer) ChangePassword(ctx context.Context, req *authv1.ChangePasswordRequest) (*authv1.ChangePasswordResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ChangePassword not implemented")
+}
+
+func (s *AuthServer) GetProfile(ctx context.Context, req *authv1.GetProfileRequest) (*authv1.GetProfileResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetProfile not implemented")
+}
+
+func (s *AuthServer) UpdateProfile(ctx context.Context, req *authv1.UpdateProfileRequest) (*authv1.UpdateProfileResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateProfile not implemented")
+}
+
+func (s *AuthServer) SuspendAccount(ctx context.Context, req *authv1.SuspendAccountRequest) (*authv1.SuspendAccountResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SuspendAccount not implemented")
+}
+
+func (s *AuthServer) ActivateAccount(ctx context.Context, req *authv1.ActivateAccountRequest) (*authv1.ActivateAccountResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ActivateAccount not implemented")
 }
