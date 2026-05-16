@@ -4,8 +4,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/gin-gonic/gin"
+	"github.com/Garryflop/DormManage/api-gateway/handlers"
 	"github.com/Garryflop/DormManage/api-gateway/middleware"
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
@@ -14,29 +15,34 @@ func main() {
 		port = "8080"
 	}
 
-	r := gin.Default()
+	roomAddr := os.Getenv("ROOM_SERVICE_ADDR")
+	if roomAddr == "" {
+		roomAddr = "localhost:50052"
+	}
+	fileAddr := os.Getenv("FILE_SERVICE_ADDR")
+	if fileAddr == "" {
+		fileAddr = "localhost:50053"
+	}
 
-	// Global middleware
+	r := gin.Default()
 	r.Use(middleware.CORS())
 
-	// Health check (public)
+	// Public
 	r.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"status":  "ok",
-			"service": "api-gateway",
-		})
+		c.JSON(200, gin.H{"status": "ok", "service": "api-gateway"})
 	})
 
-	// Route groups — each member registers their own handlers
-	// auth routes registered by D in handlers/auth.go
-	// room + file routes registered by N in handlers/room.go + handlers/file.go
-	// issue routes registered by E in handlers/issue.go
-	// activity routes registered by T in handlers/activity.go
-
+	// Authenticated routes
 	api := r.Group("/api/v1")
 	api.Use(middleware.Auth())
-	// TODO: each member registers routes here
-	_ = api // suppress unused warning until handlers are added
+
+	// N: Room and File routes
+	handlers.RegisterRoomRoutes(api, roomAddr)
+	handlers.RegisterFileRoutes(api, fileAddr)
+
+	// D: auth routes → handlers/auth.go (TODO)
+	// E: issue routes → handlers/issue.go (TODO)
+	// T: activity routes → handlers/activity.go (TODO)
 
 	log.Printf("API Gateway starting on :%s\n", port)
 	if err := r.Run(":" + port); err != nil {
