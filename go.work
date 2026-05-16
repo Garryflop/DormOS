@@ -7,4 +7,5 @@ use (
 	./issue-service
 	./notification-service
 	./pkg
+	./room-service
 )
