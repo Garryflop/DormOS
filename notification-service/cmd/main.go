@@ -22,6 +22,14 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/sdk/resource"
+
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
+
 	pgRepo "github.com/dormos/notification-service/internal/repository/postgres"
 
 	grpcHandler "github.com/dormos/notification-service/internal/transport/grpc"
@@ -30,20 +38,60 @@ import (
 	"github.com/dormos/notification-service/internal/usecase"
 )
 
+func initTracer(serviceName string) (*sdktrace.TracerProvider, error) {
+
+	ctx := context.Background()
+
+	exporter, err := otlptracegrpc.New(
+		ctx,
+		otlptracegrpc.WithInsecure(),
+		otlptracegrpc.WithEndpoint("localhost:4317"),
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithBatcher(exporter),
+		sdktrace.WithResource(
+			resource.NewWithAttributes(
+				semconv.SchemaURL,
+				semconv.ServiceName(serviceName),
+			),
+		),
+	)
+
+	otel.SetTracerProvider(tp)
+
+	return tp, nil
+}
+
 func main() {
 
-	// Load .env
 	if err := godotenv.Load(); err != nil {
 		log.Println("[WARN] .env file not found")
 	}
 
-	// PostgreSQL
+	tp, err := initTracer("notification-service")
+	if err != nil {
+		log.Fatalf("failed to initialize tracer: %v", err)
+	}
+
+	defer func() {
+
+		if err := tp.Shutdown(context.Background()); err != nil {
+			log.Printf("Error shutting down tracer provider: %v", err)
+		}
+	}()
+
 	dbURL := mustEnv("DATABASE_URL")
 
 	ctx, cancel := context.WithTimeout(
 		context.Background(),
 		10*time.Second,
 	)
+
 	defer cancel()
 
 	pool, err := pgxpool.New(ctx, dbURL)
@@ -65,7 +113,6 @@ func main() {
 
 	log.Println("[OK] PostgreSQL connected")
 
-	// Redis
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     mustEnv("REDIS_ADDR"),
 		Password: os.Getenv("REDIS_PASSWORD"),
@@ -81,7 +128,6 @@ func main() {
 
 	log.Println("[OK] Redis connected")
 
-	// NATS
 	nc, err := natsclient.Connect(
 		mustEnv("NATS_URL"),
 	)
@@ -97,11 +143,10 @@ func main() {
 
 	log.Println("[OK] NATS connected")
 
-	// Repositories
 	eventRepo := pgRepo.NewEventRepository(pool)
+
 	notifRepo := pgRepo.NewNotificationRepository(pool)
 
-	// SMTP
 	smtpCfg := usecase.SMTPConfig{
 		Host:     mustEnv("SMTP_HOST"),
 		Port:     mustEnv("SMTP_PORT"),
@@ -110,12 +155,10 @@ func main() {
 		From:     mustEnv("SMTP_FROM"),
 	}
 
-	// Publisher
 	publisher := &natsPublisher{
 		nc: nc,
 	}
 
-	// UseCases
 	activityUC := usecase.NewActivityUseCase(
 		eventRepo,
 		rdb,
@@ -127,7 +170,6 @@ func main() {
 		smtpCfg,
 	)
 
-	// NATS Subscriber
 	sub := natsTransport.NewSubscriber(
 		nc,
 		notifUC,
@@ -142,7 +184,6 @@ func main() {
 
 	log.Println("[OK] NATS subscribers registered")
 
-	// gRPC
 	grpcPort := getEnv("GRPC_PORT", "50054")
 
 	lis, err := net.Listen(
@@ -157,7 +198,11 @@ func main() {
 		)
 	}
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(
+		grpc.StatsHandler(
+			otelgrpc.NewServerHandler(),
+		),
+	)
 
 	handler := grpcHandler.NewHandler(
 		activityUC,
@@ -171,7 +216,6 @@ func main() {
 
 	reflection.Register(grpcServer)
 
-	// Graceful shutdown
 	quit := make(chan os.Signal, 1)
 
 	signal.Notify(
@@ -204,8 +248,6 @@ func main() {
 	log.Println("[SHUTDOWN] done")
 }
 
-// Helpers
-
 func mustEnv(key string) string {
 
 	v := os.Getenv(key)
@@ -230,8 +272,6 @@ func getEnv(key, fallback string) string {
 
 	return v
 }
-
-// NATS Publisher
 
 type natsPublisher struct {
 	nc *natsclient.Conn
