@@ -2,62 +2,82 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"os"
 
 	issuev1 "github.com/Garryflop/DormOS-gen-go/issue/v1"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/nats-io/nats.go"
 	"github.com/redis/go-redis/v9"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 
+	"github.com/Garryflop/DormManage/issue-service/internal/config"
 	issuegrpc "github.com/Garryflop/DormManage/issue-service/internal/grpc"
 	issuenats "github.com/Garryflop/DormManage/issue-service/internal/nats"
 	"github.com/Garryflop/DormManage/issue-service/internal/repository"
 	"github.com/Garryflop/DormManage/issue-service/internal/service"
 )
 
-func getEnv(key, def string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return def
-}
-
 func main() {
-	ctx := context.Background()
+	cfg := config.Load()
 
-	// --- Postgres ---
-	pgURL := getEnv("DATABASE_URL", "postgres://dormos:dormos123@127.0.0.1:5432/dormos?sslmode=disable")
-	db, err := pgxpool.New(ctx, pgURL)
+	// ── OpenTelemetry ──────────────────────────────────────────
+	otelEndpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+	if otelEndpoint == "" {
+		otelEndpoint = "otel-collector:4317"
+	}
+	shutdown, err := config.InitOpenTelemetry(context.Background(), "issue-service", otelEndpoint)
 	if err != nil {
-		log.Fatalf("pgxpool: %v", err)
+		log.Printf("⚠ Failed to init OpenTelemetry: %v", err)
+	} else {
+		defer shutdown(context.Background())
+	}
+
+	// ── Postgres ───────────────────────────────────────────────
+	db, err := pgxpool.New(context.Background(), cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("Failed to connect to Postgres: %v", err)
 	}
 	defer db.Close()
-	if err := db.Ping(ctx); err != nil {
-		log.Fatalf("postgres ping: %v", err)
+	if err := db.Ping(context.Background()); err != nil {
+		log.Fatalf("Postgres ping failed: %v", err)
 	}
-	log.Println("✅ Postgres connected")
+	log.Println("✓ Connected to Postgres")
 
-	// --- Redis ---
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     getEnv("REDIS_ADDR", "localhost:6379"),
-		Password: getEnv("REDIS_PASSWORD", "redis123"),
-	})
-	if err := rdb.Ping(ctx).Err(); err != nil {
-		log.Fatalf("redis ping: %v", err)
-	}
-	log.Println("✅ Redis connected")
-
-	// --- NATS ---
-	publisher, err := issuenats.NewPublisher(getEnv("NATS_URL", "nats://localhost:4222"))
+	// ── Redis ──────────────────────────────────────────────────
+	opts, err := redis.ParseURL(cfg.RedisURL)
 	if err != nil {
-		log.Fatalf("nats: %v", err)
+		log.Fatalf("Failed to parse Redis URL: %v", err)
 	}
-	defer publisher.Close()
-	log.Println("✅ NATS connected")
+	rdb := redis.NewClient(opts)
+	if err := rdb.Ping(context.Background()).Err(); err != nil {
+		log.Fatalf("Redis ping failed: %v", err)
+	}
+	log.Println("✓ Connected to Redis")
 
-	// --- Repos & Service ---
+	// ── NATS ───────────────────────────────────────────────────
+	nc, err := nats.Connect(cfg.NatsURL)
+	if err != nil {
+		log.Printf("⚠ NATS connection failed (events disabled): %v", err)
+	} else {
+		log.Println("✓ Connected to NATS")
+		defer nc.Close()
+	}
+	_ = nc
+
+	// ── Wiring ─────────────────────────────────────────────────
+	publisher, err := issuenats.NewPublisher(cfg.NatsURL)
+	if err != nil {
+		log.Printf("⚠ NATS publisher failed: %v", err)
+	}
+	if publisher != nil {
+		defer publisher.Close()
+	}
+
 	svc := service.New(
 		repository.NewIssueRepo(db),
 		repository.NewCommentRepo(db),
@@ -67,18 +87,31 @@ func main() {
 		rdb,
 	)
 
-	// --- gRPC server ---
-	grpcPort := getEnv("GRPC_PORT", "50052")
-	lis, err := net.Listen("tcp", ":"+grpcPort)
+	// ── gRPC Server ────────────────────────────────────────────
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", cfg.GRPCPort))
 	if err != nil {
-		log.Fatalf("listen: %v", err)
+		log.Fatalf("Failed to listen on port %s: %v", cfg.GRPCPort, err)
 	}
 
-	server := grpc.NewServer()
-	issuev1.RegisterIssueServiceServer(server, issuegrpc.NewIssueServer(svc))
+	grpcServer := grpc.NewServer(
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
+		grpc.ChainUnaryInterceptor(loggingInterceptor),
+	)
 
-	log.Printf("🚀 Issue Service gRPC on :%s\n", grpcPort)
-	if err := server.Serve(lis); err != nil {
-		log.Fatalf("serve: %v", err)
+	issuev1.RegisterIssueServiceServer(grpcServer, issuegrpc.NewIssueServer(svc))
+	reflection.Register(grpcServer)
+
+	log.Printf("✓ Issue Service gRPC listening on :%s", cfg.GRPCPort)
+	if err := grpcServer.Serve(lis); err != nil {
+		log.Fatalf("Failed to serve: %v", err)
 	}
+}
+
+func loggingInterceptor(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+	log.Printf("[issue-service] → %s", info.FullMethod)
+	resp, err := handler(ctx, req)
+	if err != nil {
+		log.Printf("[issue-service] ✗ %s: %v", info.FullMethod, err)
+	}
+	return resp, err
 }
