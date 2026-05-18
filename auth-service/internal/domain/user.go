@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -24,47 +25,47 @@ func (r Role) IsValid() bool {
 }
 
 type User struct {
+	ID          uuid.UUID
+	Email       string
+	Password    string
+	FullName    string
+	Phone       string
+	Role        Role
+	AvatarURL   string
+	IsSuspended bool
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+type Session struct {
 	ID           uuid.UUID
-	Email        string
-	PasswordHash string
-	FullName     string
-	Role         Role
-	DormID       uuid.UUID
-	RoomNumber   string
-	Floor        int
-	IsActive     bool
+	UserID       uuid.UUID
+	RefreshToken string
+	ExpiresAt    time.Time
 	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	Revoked      bool
 }
 
-type RegisterInput struct {
-	Email      string
-	Password   string
-	FullName   string
-	Role       Role
-	DormID     uuid.UUID
-	RoomNumber string
-	Floor      int
+func (s *Session) IsExpired() bool {
+	return time.Now().After(s.ExpiresAt)
 }
 
-func (r *RegisterInput) Validate() error {
-	if r.Email == "" {
-		return ErrEmailRequired
-	}
-	if r.Password == "" {
-		return ErrPasswordRequired
-	}
-	if len(r.Password) < 8 {
-		return ErrPasswordTooShort
-	}
-	if r.FullName == "" {
-		return ErrFullNameRequired
-	}
-	if !r.Role.IsValid() {
-		return ErrInvalidRole
-	}
-	if r.DormID == uuid.Nil {
-		return ErrDormIDRequired
-	}
-	return nil
+func (s *Session) IsValid() bool {
+	return !s.Revoked && !s.IsExpired()
 }
+
+var (
+	ErrEmailRequired    = errors.New("email is required")
+	ErrPasswordRequired = errors.New("password is required")
+	ErrPasswordTooShort = errors.New("password must be at least 8 characters")
+	ErrFullNameRequired = errors.New("full name is required")
+	ErrInvalidRole      = errors.New("invalid role")
+	ErrEmailTaken       = errors.New("email already exists")
+	ErrUserNotFound     = errors.New("user not found")
+	ErrInvalidPassword  = errors.New("invalid password")
+	ErrAccountSuspended = errors.New("account is suspended")
+	ErrInvalidToken     = errors.New("invalid or expired token")
+	ErrSessionNotFound  = errors.New("session not found")
+	ErrSessionRevoked   = errors.New("session has been revoked")
+	ErrSessionExpired   = errors.New("session has expired")
+)
