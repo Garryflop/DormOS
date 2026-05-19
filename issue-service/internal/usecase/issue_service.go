@@ -9,24 +9,23 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/Garryflop/DormManage/issue-service/internal/domain"
-	"github.com/Garryflop/DormManage/issue-service/internal/repository"
 	issuenats "github.com/Garryflop/DormManage/issue-service/internal/transport/nats"
 )
 
 type IssueService struct {
-	issues     *repository.IssueRepo
-	comments   *repository.CommentRepo
-	workers    *repository.WorkerRepo
-	categories *repository.CategoryRepo
+	issues     domain.IssueRepository
+	comments   domain.CommentRepository
+	workers    domain.WorkerRepository
+	categories domain.CategoryRepository
 	publisher  *issuenats.Publisher
 	redis      *redis.Client
 }
 
 func New(
-	issues *repository.IssueRepo,
-	comments *repository.CommentRepo,
-	workers *repository.WorkerRepo,
-	categories *repository.CategoryRepo,
+	issues domain.IssueRepository,
+	comments domain.CommentRepository,
+	workers domain.WorkerRepository,
+	categories domain.CategoryRepository,
 	publisher *issuenats.Publisher,
 	redis *redis.Client,
 ) *IssueService {
