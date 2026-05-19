@@ -42,6 +42,7 @@ func main() {
 
 	// D: auth routes → handlers/auth.go (TODO)
 	// E: issue routes → handlers/issue.go (TODO)
+	handlers.RegisterIssueRoutes(api)
 	// T: activity routes → handlers/activity.go (TODO)
 
 	log.Printf("API Gateway starting on :%s\n", port)

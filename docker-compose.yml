@@ -58,39 +58,11 @@ services:
       dockerfile: issue-service/Dockerfile
     environment:
       DATABASE_URL: postgres://dormos:dormos123@postgres:5432/dormos?sslmode=disable
-      REDIS_ADDR: redis:6379
-      REDIS_PASSWORD: redis123
+      REDIS_URL: redis://:redis123@redis:6379/0
       NATS_URL: nats://nats:4222
-      GRPC_PORT: 50052
+      ISSUE_SERVICE_PORT: "50052"
     ports:
       - "50052:50052"
-  api-gateway:
-    build:
-      context: .
-      args:
-        SERVICE_NAME: api-gateway
-    ports:
-      - "8080:8080"
-    environment:
-      - API_GATEWAY_PORT=8080
-      - ROOM_SERVICE_ADDR=room-service:50052
-      - FILE_SERVICE_ADDR=file-service:50053
-    depends_on:
-      - room-service
-      - file-service
-
-  room-service:
-    build:
-      context: .
-      args:
-        SERVICE_NAME: room-service
-    ports:
-      - "50052:50052"
-    environment:
-      - DATABASE_URL=postgres://dormos:dormos123@postgres:5432/dormos?sslmode=disable
-      - REDIS_URL=redis://:redis123@redis:6379/0
-      - NATS_URL=nats://nats:4222
-      - ROOM_SERVICE_PORT=50052
     depends_on:
       postgres:
         condition: service_healthy
@@ -99,10 +71,26 @@ services:
       nats:
         condition: service_started
 
-volumes:
-  postgres-data:
-  redis-data:
-  minio-data:
+  room-service:
+    build:
+      context: .
+      args:
+        SERVICE_NAME: room-service
+    ports:
+      - "50054:50054"
+    environment:
+      - DATABASE_URL=postgres://dormos:dormos123@postgres:5432/dormos?sslmode=disable
+      - REDIS_URL=redis://:redis123@redis:6379/0
+      - NATS_URL=nats://nats:4222
+      - ROOM_SERVICE_PORT=50054
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_started
+
   file-service:
     build:
       context: .
@@ -127,16 +115,32 @@ volumes:
       minio:
         condition: service_healthy
 
-  # ── Observability Stack (OpenTelemetry, Prometheus, Tempo, Loki, Grafana) ──
+  api-gateway:
+    build:
+      context: .
+      args:
+        SERVICE_NAME: api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - API_GATEWAY_PORT=8080
+      - ROOM_SERVICE_ADDR=room-service:50054
+      - FILE_SERVICE_ADDR=file-service:50053
+      - ISSUE_SERVICE_ADDR=issue-service:50052
+    depends_on:
+      - room-service
+      - file-service
+      - issue-service
+
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.91.0
     command: ["--config=/etc/otel-collector-config.yaml"]
     volumes:
       - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
     ports:
-      - "4317:4317" # OTLP gRPC
-      - "4318:4318" # OTLP HTTP
-      - "8889:8889" # Prometheus metrics endpoint
+      - "4317:4317"
+      - "4318:4318"
+      - "8889:8889"
 
   prometheus:
     image: prom/prometheus:v2.48.1
@@ -153,7 +157,7 @@ volumes:
 
   tempo:
     image: grafana/tempo:2.3.1
-    command: [ "-config.file=/etc/tempo.yaml" ]
+    command: ["-config.file=/etc/tempo.yaml"]
     volumes:
       - ./tempo.yaml:/etc/tempo.yaml
     ports:
