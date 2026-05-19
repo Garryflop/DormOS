@@ -16,10 +16,10 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	"github.com/Garryflop/DormManage/issue-service/internal/config"
-	issuegrpc "github.com/Garryflop/DormManage/issue-service/internal/grpc"
-	issuenats "github.com/Garryflop/DormManage/issue-service/internal/nats"
 	"github.com/Garryflop/DormManage/issue-service/internal/repository"
-	"github.com/Garryflop/DormManage/issue-service/internal/service"
+	issuegrpc "github.com/Garryflop/DormManage/issue-service/internal/transport/grpc"
+	issuenats "github.com/Garryflop/DormManage/issue-service/internal/transport/nats"
+	"github.com/Garryflop/DormManage/issue-service/internal/usecase"
 )
 
 func main() {
@@ -78,7 +78,7 @@ func main() {
 		defer publisher.Close()
 	}
 
-	svc := service.New(
+	svc := usecase.New(
 		repository.NewIssueRepo(db),
 		repository.NewCommentRepo(db),
 		repository.NewWorkerRepo(db),
