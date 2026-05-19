@@ -75,13 +75,22 @@ func main() {
 
 	tp, err := initTracer("notification-service")
 	if err != nil {
-		log.Fatalf("failed to initialize tracer: %v", err)
+		log.Fatalf(
+			"failed to initialize tracer: %v",
+			err,
+		)
 	}
 
 	defer func() {
 
-		if err := tp.Shutdown(context.Background()); err != nil {
-			log.Printf("Error shutting down tracer provider: %v", err)
+		if err := tp.Shutdown(
+			context.Background(),
+		); err != nil {
+
+			log.Printf(
+				"Error shutting down tracer provider: %v",
+				err,
+			)
 		}
 	}()
 
@@ -94,7 +103,11 @@ func main() {
 
 	defer cancel()
 
-	pool, err := pgxpool.New(ctx, dbURL)
+	pool, err := pgxpool.New(
+		ctx,
+		dbURL,
+	)
+
 	if err != nil {
 		log.Fatalf(
 			"[FATAL] postgres connect: %v",
@@ -113,13 +126,20 @@ func main() {
 
 	log.Println("[OK] PostgreSQL connected")
 
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     mustEnv("REDIS_ADDR"),
-		Password: os.Getenv("REDIS_PASSWORD"),
-		DB:       0,
-	})
+	rdb := redis.NewClient(
+		&redis.Options{
+			Addr: mustEnv("REDIS_ADDR"),
+			Password: os.Getenv(
+				"REDIS_PASSWORD",
+			),
+			DB: 0,
+		},
+	)
 
-	if _, err := rdb.Ping(context.Background()).Result(); err != nil {
+	if _, err := rdb.Ping(
+		context.Background(),
+	).Result(); err != nil {
+
 		log.Fatalf(
 			"[FATAL] redis ping: %v",
 			err,
@@ -143,16 +163,24 @@ func main() {
 
 	log.Println("[OK] NATS connected")
 
-	eventRepo := pgRepo.NewEventRepository(pool)
+	eventRepo := pgRepo.NewEventRepository(
+		pool,
+	)
 
-	notifRepo := pgRepo.NewNotificationRepository(pool)
+	notifRepo := pgRepo.NewNotificationRepository(
+		pool,
+	)
 
 	smtpCfg := usecase.SMTPConfig{
-		Host:     mustEnv("SMTP_HOST"),
-		Port:     mustEnv("SMTP_PORT"),
-		Username: mustEnv("SMTP_USERNAME"),
-		Password: mustEnv("SMTP_PASSWORD"),
-		From:     mustEnv("SMTP_FROM"),
+		Host: mustEnv("SMTP_HOST"),
+		Port: mustEnv("SMTP_PORT"),
+		Username: mustEnv(
+			"SMTP_USERNAME",
+		),
+		Password: mustEnv(
+			"SMTP_PASSWORD",
+		),
+		From: mustEnv("SMTP_FROM"),
 	}
 
 	publisher := &natsPublisher{
@@ -182,9 +210,14 @@ func main() {
 		)
 	}
 
-	log.Println("[OK] NATS subscribers registered")
+	log.Println(
+		"[OK] NATS subscribers registered",
+	)
 
-	grpcPort := getEnv("GRPC_PORT", "50054")
+	grpcPort := getEnv(
+		"GRPC_PORT",
+		"50054",
+	)
 
 	lis, err := net.Listen(
 		"tcp",
@@ -231,7 +264,10 @@ func main() {
 			grpcPort,
 		)
 
-		if err := grpcServer.Serve(lis); err != nil {
+		if err := grpcServer.Serve(
+			lis,
+		); err != nil {
+
 			log.Fatalf(
 				"[FATAL] grpc serve: %v",
 				err,
@@ -241,12 +277,16 @@ func main() {
 
 	<-quit
 
-	log.Println("[SHUTDOWN] stopping grpc server")
+	log.Println(
+		"[SHUTDOWN] stopping grpc server",
+	)
 
 	grpcServer.GracefulStop()
 
 	log.Println("[SHUTDOWN] done")
 }
+
+// Helpers
 
 func mustEnv(key string) string {
 
@@ -262,7 +302,10 @@ func mustEnv(key string) string {
 	return v
 }
 
-func getEnv(key, fallback string) string {
+func getEnv(
+	key,
+	fallback string,
+) string {
 
 	v := os.Getenv(key)
 
@@ -272,6 +315,8 @@ func getEnv(key, fallback string) string {
 
 	return v
 }
+
+// NATS Publisher
 
 type natsPublisher struct {
 	nc *natsclient.Conn
