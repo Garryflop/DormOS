@@ -1,0 +1,603 @@
+{
+  "info": {
+    "_postman_id": "dormos-v2",
+    "name": "DormOS API — Full Collection",
+    "description": "Base URL: http://localhost:8080\n\n=== QUICK START ===\n1. Run '1. Register' — creates your account\n2. Run '2. Login' — token saved automatically to {{token}}\n3. All other requests work automatically with Bearer {{token}}\n\n=== NOTES ===\n- Register / Login / Refresh → NO auth required\n- Everything else → needs Bearer token",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8080", "type": "string" },
+    { "key": "token", "value": "", "type": "string" },
+    { "key": "refresh_token", "value": "", "type": "string" },
+    { "key": "user_id", "value": "", "type": "string" },
+    { "key": "room_id", "value": "", "type": "string" },
+    { "key": "issue_id", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "🏥 0. Health Check",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/health", "host": ["{{base_url}}"], "path": ["health"] },
+            "description": "✅ PUBLIC — no token needed.\nExpected: {\"status\": \"ok\", \"service\": \"api-gateway\"}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔐 Auth (PUBLIC — no token needed)",
+      "item": [
+        {
+          "name": "1. Register",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.user_id) {",
+                  "    pm.collectionVariables.set('user_id', json.user_id);",
+                  "    console.log('✅ Registered! user_id =', json.user_id);",
+                  "} else {",
+                  "    console.log('❌ Register failed:', JSON.stringify(json));",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@dormos.kz\",\n  \"password\": \"password123\",\n  \"full_name\": \"Diasbek Admin\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/v1/auth/register", "host": ["{{base_url}}"], "path": ["api","v1","auth","register"] },
+            "description": "✅ PUBLIC — no Authorization header needed.\n\nReturns: { \"user_id\": \"uuid\" }"
+          }
+        },
+        {
+          "name": "2. Login ← RUN THIS FIRST",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.access_token) {",
+                  "    pm.collectionVariables.set('token', json.access_token);",
+                  "    pm.collectionVariables.set('refresh_token', json.refresh_token);",
+                  "    console.log('✅ Token saved! You can now use all protected endpoints.');",
+                  "} else {",
+                  "    console.log('❌ Login failed:', JSON.stringify(json));",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@dormos.kz\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/v1/auth/login", "host": ["{{base_url}}"], "path": ["api","v1","auth","login"] },
+            "description": "✅ PUBLIC — no Authorization header needed.\n\nReturns: { \"access_token\": \"...\", \"refresh_token\": \"...\" }\n\n⭐ The test script auto-saves the token to {{token}} — all protected requests will work immediately after this."
+          }
+        },
+        {
+          "name": "3. Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.access_token) {",
+                  "    pm.collectionVariables.set('token', json.access_token);",
+                  "    pm.collectionVariables.set('refresh_token', json.refresh_token);",
+                  "    console.log('✅ Token refreshed!');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/v1/auth/refresh", "host": ["{{base_url}}"], "path": ["api","v1","auth","refresh"] },
+            "description": "✅ PUBLIC — no Authorization header needed.\nUse this when the access_token expires.\nReturns new access_token + refresh_token."
+          }
+        }
+      ]
+    },
+    {
+      "name": "👤 Auth (PROTECTED — needs token)",
+      "item": [
+        {
+          "name": "Get My Profile",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/auth/profile", "host": ["{{base_url}}"], "path": ["api","v1","auth","profile"] },
+            "description": "🔒 PROTECTED — requires Bearer token.\n\nReturns: user_id, email, full_name, role, created_at"
+          }
+        },
+        {
+          "name": "Validate Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"access_token\": \"{{token}}\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/v1/auth/validate", "host": ["{{base_url}}"], "path": ["api","v1","auth","validate"] },
+            "description": "🔒 PROTECTED — requires Bearer token.\n\nReturns: { is_valid, user_id, role }"
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"access_token\": \"{{token}}\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/v1/auth/logout", "host": ["{{base_url}}"], "path": ["api","v1","auth","logout"] },
+            "description": "🔒 PROTECTED — requires Bearer token.\n\nReturns: { success: true }"
+          }
+        }
+      ]
+    },
+    {
+      "name": "🏠 Rooms",
+      "item": [
+        {
+          "name": "Create Room",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.room_id) {",
+                  "    pm.collectionVariables.set('room_id', json.room_id);",
+                  "    console.log('✅ Room created, room_id =', json.room_id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"room_number\": \"101A\",\n  \"floor\": 1,\n  \"capacity\": 4\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/v1/rooms", "host": ["{{base_url}}"], "path": ["api","v1","rooms"] },
+            "description": "🔒 PROTECTED\n\nBody: room_number (string), floor (int), capacity (int)\nReturns: { room_id: \"uuid\" }"
+          }
+        },
+        {
+          "name": "List Rooms",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/v1/rooms?floor=0",
+              "host": ["{{base_url}}"],
+              "path": ["api","v1","rooms"],
+              "query": [{ "key": "floor", "value": "0", "description": "0 = all floors, 1..N = filter by floor number" }]
+            },
+            "description": "🔒 PROTECTED\n\nQuery: ?floor=0 (0 = all floors)\nReturns: { rooms: [...] }"
+          }
+        },
+        {
+          "name": "Get Room by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/v1/rooms/{{room_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api","v1","rooms","{{room_id}}"]
+            },
+            "description": "🔒 PROTECTED\n\nReturns: room_id, room_number, floor, capacity, occupied, residents"
+          }
+        },
+        {
+          "name": "Dashboard Stats",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/dashboard/stats", "host": ["{{base_url}}"], "path": ["api","v1","dashboard","stats"] },
+            "description": "🔒 PROTECTED\n\nReturns: total_residents, total_rooms, occupied_rooms, available_beds"
+          }
+        }
+      ]
+    },
+    {
+      "name": "👥 Residents",
+      "item": [
+        {
+          "name": "Assign Resident to Room",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"room_id\": \"{{room_id}}\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/v1/residents", "host": ["{{base_url}}"], "path": ["api","v1","residents"] },
+            "description": "🔒 PROTECTED\n\nBody: user_id (UUID), room_id (UUID)\nReturns: { resident_id: \"uuid\" }"
+          }
+        },
+        {
+          "name": "Get Resident",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/v1/residents/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api","v1","residents","{{user_id}}"]
+            },
+            "description": "🔒 PROTECTED\n\nReturns: resident_id, user_id, room_number, role, check_in_date"
+          }
+        },
+        {
+          "name": "List Residents",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/v1/residents?room_id=&role=",
+              "host": ["{{base_url}}"],
+              "path": ["api","v1","residents"],
+              "query": [
+                { "key": "room_id", "value": "", "description": "Filter by room UUID (optional)" },
+                { "key": "role", "value": "", "description": "Filter by role: student | manager | admin (optional)" }
+              ]
+            },
+            "description": "🔒 PROTECTED\n\nAll query params optional.\nReturns: { residents: [...] }"
+          }
+        },
+        {
+          "name": "Remove Resident",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/v1/residents/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api","v1","residents","{{user_id}}"]
+            },
+            "description": "🔒 PROTECTED\n\nReturns: { message: \"resident removed\" }"
+          }
+        },
+        {
+          "name": "Update Resident Role",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"manager\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/residents/{{user_id}}/role",
+              "host": ["{{base_url}}"],
+              "path": ["api","v1","residents","{{user_id}}","role"]
+            },
+            "description": "🔒 PROTECTED\n\nBody: role must be one of: student | manager | admin\nReturns: { message: \"role updated\" }"
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔧 Issues",
+      "item": [
+        {
+          "name": "Create Issue",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.message) console.log('✅ Issue created');",
+                  "console.log(JSON.stringify(json));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"room_number\": \"101A\",\n  \"category_id\": \"00000000-0000-0000-0000-000000000001\",\n  \"title\": \"Broken heater\",\n  \"description\": \"The heater in my room stopped working yesterday\",\n  \"photo_url\": \"\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/v1/issues", "host": ["{{base_url}}"], "path": ["api","v1","issues"] },
+            "description": "🔒 PROTECTED\n\nBody fields:\n- room_number: string (required)\n- category_id: UUID (required)\n- title: string (required)\n- description: string (required)\n- photo_url: string (optional)"
+          }
+        },
+        {
+          "name": "Get Issue by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/v1/issues/{{issue_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api","v1","issues","{{issue_id}}"]
+            },
+            "description": "🔒 PROTECTED\n\nReplace {{issue_id}} with actual UUID"
+          }
+        },
+        {
+          "name": "My Issues",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/issues/my", "host": ["{{base_url}}"], "path": ["api","v1","issues","my"] },
+            "description": "🔒 PROTECTED\n\nReturns all issues created by the currently logged-in user.\nReturns: { issues: [...] }"
+          }
+        },
+        {
+          "name": "List All Issues (manager+)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/issues", "host": ["{{base_url}}"], "path": ["api","v1","issues"] },
+            "description": "🔒 PROTECTED (manager or admin role)\n\nReturns all issues in the system.\nReturns: { issues: [...] }"
+          }
+        },
+        {
+          "name": "Update Issue Status (manager+)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"in_progress\",\n  \"worker_id\": \"\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/issues/{{issue_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["api","v1","issues","{{issue_id}}","status"]
+            },
+            "description": "🔒 PROTECTED (manager+)\n\nBody:\n- status: open | in_progress | resolved | closed (required)\n- worker_id: UUID (optional)"
+          }
+        },
+        {
+          "name": "Assign Worker to Issue (manager+)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"worker_id\": \"WORKER_UUID_HERE\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/issues/{{issue_id}}/assign",
+              "host": ["{{base_url}}"],
+              "path": ["api","v1","issues","{{issue_id}}","assign"]
+            },
+            "description": "🔒 PROTECTED (manager+)\n\nBody: worker_id (UUID, required)"
+          }
+        },
+        {
+          "name": "Delete Issue (admin)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/v1/issues/{{issue_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api","v1","issues","{{issue_id}}"]
+            },
+            "description": "🔒 PROTECTED (admin only)\n\nReturns: { deleted: \"uuid\" }"
+          }
+        },
+        {
+          "name": "Add Comment to Issue",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"We will fix this tomorrow morning\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/issues/{{issue_id}}/comments",
+              "host": ["{{base_url}}"],
+              "path": ["api","v1","issues","{{issue_id}}","comments"]
+            },
+            "description": "🔒 PROTECTED\n\nBody: text (string, required)"
+          }
+        },
+        {
+          "name": "List Comments for Issue",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/v1/issues/{{issue_id}}/comments",
+              "host": ["{{base_url}}"],
+              "path": ["api","v1","issues","{{issue_id}}","comments"]
+            },
+            "description": "🔒 PROTECTED\n\nReturns: { issue_id, comments: [...] }"
+          }
+        },
+        {
+          "name": "List Workers (manager+)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/issues/workers", "host": ["{{base_url}}"], "path": ["api","v1","issues","workers"] },
+            "description": "🔒 PROTECTED (manager+)\n\nReturns: { workers: [...] }"
+          }
+        },
+        {
+          "name": "Create Category (admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Electrical\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/v1/issues/categories", "host": ["{{base_url}}"], "path": ["api","v1","issues","categories"] },
+            "description": "🔒 PROTECTED (admin only)\n\nBody: name (string, required)\nReturns: { name: \"Electrical\" }"
+          }
+        },
+        {
+          "name": "List Categories",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/categories", "host": ["{{base_url}}"], "path": ["api","v1","categories"] },
+            "description": "🔒 PROTECTED\n\nReturns: { categories: [...] }"
+          }
+        }
+      ]
+    },
+    {
+      "name": "📁 Files",
+      "item": [
+        {
+          "name": "Upload File",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "description": "Click the file icon on the right to select a file"
+                }
+              ]
+            },
+            "url": { "raw": "{{base_url}}/api/v1/files/upload", "host": ["{{base_url}}"], "path": ["api","v1","files","upload"] },
+            "description": "🔒 PROTECTED\n\nContent-Type: multipart/form-data\nField: file (file input)\nReturns: filename, size, content_type, uploaded_by"
+          }
+        },
+        {
+          "name": "Get File URL",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/v1/files/FILE_UUID_HERE/url",
+              "host": ["{{base_url}}"],
+              "path": ["api","v1","files","FILE_UUID_HERE","url"]
+            },
+            "description": "🔒 PROTECTED\n\nReturns: { file_id, url }"
+          }
+        },
+        {
+          "name": "Delete File (admin)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/v1/files/FILE_UUID_HERE",
+              "host": ["{{base_url}}"],
+              "path": ["api","v1","files","FILE_UUID_HERE"]
+            },
+            "description": "🔒 PROTECTED (admin)\n\nReturns: { message: \"file deleted\", file_id }"
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔔 Notifications",
+      "item": [
+        {
+          "name": "Send Notification",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"title\": \"Room Assignment\",\n  \"message\": \"You have been assigned to room 101A\",\n  \"channel\": \"email\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/v1/notifications", "host": ["{{base_url}}"], "path": ["api","v1","notifications"] },
+            "description": "🔒 PROTECTED\n\nBody:\n- user_id: UUID (required)\n- title: string (required)\n- message: string (required)\n- channel: email | sms | push (optional)\n\nReturns: { success: true }"
+          }
+        },
+        {
+          "name": "List Notifications",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/v1/notifications?user_id={{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api","v1","notifications"],
+              "query": [{ "key": "user_id", "value": "{{user_id}}", "description": "UUID of the user (required)" }]
+            },
+            "description": "🔒 PROTECTED\n\nQuery: user_id (UUID, required)\nReturns: { notifications: [...] }"
+          }
+        }
+      ]
+    }
+  ]
+}
