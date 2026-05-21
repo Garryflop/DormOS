@@ -1,11 +1,12 @@
 issue-service:
-  build: ./issue-service
+  build:
+    context: .
+    dockerfile: issue-service/Dockerfile
   environment:
     DATABASE_URL: postgres://dormos:dormos123@postgres:5432/dormos?sslmode=disable
-    REDIS_ADDR: redis:6379
-    REDIS_PASSWORD: redis123
+    REDIS_URL: redis://:redis123@redis:6379/0
     NATS_URL: nats://nats:4222
-    GRPC_PORT: 50052
+    ISSUE_SERVICE_PORT: "50052"
   ports:
     - "50052:50052"
   depends_on:
