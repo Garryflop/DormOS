@@ -40,8 +40,8 @@ func main() {
 	api := r.Group("/api/v1")
 	api.Use(middleware.Auth())
 
-	handlers.RegisterRoomRoutes(api, roomAddr)
-	handlers.RegisterFileRoutes(api, fileAddr)
+	// handlers.RegisterRoomRoutes(api, roomAddr)
+	// handlers.RegisterFileRoutes(api, fileAddr)
 	handlers.RegisterIssueRoutes(api, issueAddr)
 
 	log.Printf("API Gateway starting on :%s\n", port)
