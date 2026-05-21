@@ -1,3 +1,5 @@
+import { FileText } from 'lucide-react'
+
 export default function DocumentsPage() {
     return (
         <div style={{ maxWidth: '800px' }}>
@@ -10,7 +12,19 @@ export default function DocumentsPage() {
                 background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)',
                 borderRadius: '8px', padding: '48px', textAlign: 'center',
             }}>
-                <div style={{ fontSize: '32px', marginBottom: '12px' }}>📄</div>
+                <div style={{ 
+                    display: 'inline-flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    background: 'rgba(255,255,255,0.02)', 
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    padding: '16px', 
+                    borderRadius: '50%',
+                    color: 'var(--accent)',
+                    marginBottom: '16px' 
+                }}>
+                    <FileText size={32} />
+                </div>
                 <div style={{ fontSize: '14px', fontWeight: 510, color: 'var(--text2)', marginBottom: '6px', letterSpacing: '-0.182px' }}>
                     No documents yet
                 </div>

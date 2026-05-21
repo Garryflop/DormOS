@@ -118,12 +118,17 @@ func (h *IssueHandler) CreateIssue(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	var photoUrls []string
+	if req.PhotoURL != "" {
+		photoUrls = []string{req.PhotoURL}
+	}
 	resp, err := h.client.CreateIssue(c.Request.Context(), &issuev1.CreateIssueRequest{
 		UserId:     userID.(string),
 		RoomNumber: req.RoomNumber,
 		CategoryId: req.CategoryID,
 		Title:      req.Title,
 		Description: req.Description,
+		PhotoUrls:   photoUrls,
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

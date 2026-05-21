@@ -44,6 +44,31 @@ export const issuesAPI = {
     listCategories: () => api.get('/categories'),
 }
 
+export const roomsAPI = {
+    list: (floor?: number) => api.get('/rooms', { params: floor ? { floor } : {} }),
+    get: (id: string) => api.get(`/rooms/${id}`),
+    create: (data: { room_number: string; floor: number; capacity: number }) => api.post('/rooms', data),
+}
+
+export const residentsAPI = {
+    list: (role?: string) => api.get('/residents', { params: role ? { role } : {} }),
+    get: (userId: string) => api.get(`/residents/${userId}`),
+    assign: (userId: string, roomId: string) => api.post('/residents', { user_id: userId, room_id: roomId }),
+    remove: (userId: string) => api.delete(`/residents/${userId}`),
+    updateRole: (userId: string, role: string) => api.patch(`/residents/${userId}/role`, { role }),
+}
+
+export const filesAPI = {
+    upload: (file: File) => {
+        const formData = new FormData()
+        formData.append('file', file)
+        return api.post('/files/upload', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        })
+    },
+    getUrl: (id: string) => api.get(`/files/${id}/url`),
+}
+
 export interface RegisterDto {
     full_name: string
     email: string

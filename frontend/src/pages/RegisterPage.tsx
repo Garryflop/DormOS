@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { authAPI } from '../api'
+import { Home } from 'lucide-react'
 
 export default function RegisterPage() {
     const navigate = useNavigate()
@@ -75,8 +76,10 @@ export default function RegisterPage() {
                         <div style={{
                             width: '28px', height: '28px', background: 'var(--accent)',
                             borderRadius: '7px', display: 'flex', alignItems: 'center',
-                            justifyContent: 'center', fontSize: '14px',
-                        }}>🏠</div>
+                            justifyContent: 'center', color: '#fff',
+                        }}>
+                            <Home size={14} />
+                        </div>
                         <span style={{ fontSize: '15px', fontWeight: 510, color: 'var(--text)', letterSpacing: '-0.165px' }}>
                             DormOS
                         </span>

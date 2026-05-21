@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
+import { Home } from 'lucide-react'
 
 export default function LoginPage() {
     const { login } = useAuth()
@@ -57,8 +58,11 @@ export default function LoginPage() {
                     }}>
                         <div style={{
                             width: '28px', height: '28px', background: 'var(--accent)',
-                            borderRadius: '7px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px',
-                        }}>🏠</div>
+                            borderRadius: '7px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: '#fff',
+                        }}>
+                            <Home size={14} />
+                        </div>
                         <span style={{ fontSize: '15px', fontWeight: 510, color: 'var(--text)', letterSpacing: '-0.165px' }}>DormOS</span>
                     </div>
                     <h1 style={{ fontSize: '24px', fontWeight: 510, color: 'var(--text)', letterSpacing: '-0.288px', marginBottom: '6px' }}>
