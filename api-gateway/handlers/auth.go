@@ -15,10 +15,6 @@ type AuthHandler struct {
 	client authv1.AuthServiceClient
 }
 
-func RegisterAuthRoutes(r *gin.RouterGroup, authServiceAddr string) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
 // RegisterAuthRoutes wires all auth HTTP endpoints.
 // Public routes (register, login, refresh) are on `public` (no Auth middleware).
 // Protected routes (profile, logout, validate) are on `protected` (requires Bearer token).
@@ -35,23 +31,6 @@ func RegisterAuthRoutes(public *gin.RouterGroup, protected *gin.RouterGroup, aut
 
 	h := &AuthHandler{client: authv1.NewAuthServiceClient(conn)}
 
-	auth := r.Group("/auth")
-	{
-		auth.POST("/register", h.Register)
-		auth.POST("/login", h.Login)
-		auth.POST("/logout", h.Logout)
-		auth.POST("/refresh", h.RefreshToken)
-		auth.GET("/profile/:user_id", h.GetProfile)
-		auth.POST("/validate", h.ValidateToken)
-	}
-}
-
-// POST /api/v1/auth/register
-func (h *AuthHandler) Register(c *gin.Context) {
-	var req struct {
-		Email    string `json:"email"     binding:"required"`
-		Password string `json:"password"  binding:"required"`
-		FullName string `json:"full_name" binding:"required"`
 	// Public — no token required
 	auth := public.Group("/auth")
 	{
@@ -69,13 +48,12 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 }
 
-
 // POST /api/v1/auth/register
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req struct {
 		Email    string `json:"email"    binding:"required,email"`
 		Password string `json:"password" binding:"required"`
-		FullName string `json:"full_name"`
+		FullName string `json:"full_name" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -92,7 +70,6 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"user_id": resp.UserId})
 	c.JSON(http.StatusCreated, gin.H{
 		"user_id": resp.UserId,
 	})
@@ -101,7 +78,6 @@ func (h *AuthHandler) Register(c *gin.Context) {
 // POST /api/v1/auth/login
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req struct {
-		Email    string `json:"email"    binding:"required"`
 		Email    string `json:"email"    binding:"required,email"`
 		Password string `json:"password" binding:"required"`
 	}
@@ -125,52 +101,10 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	})
 }
 
-// POST /api/v1/auth/logout
-func (h *AuthHandler) Logout(c *gin.Context) {
-	var req struct {
-		AccessToken string `json:"access_token" binding:"required"`
 // POST /api/v1/auth/refresh
 func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	var req struct {
 		RefreshToken string `json:"refresh_token" binding:"required"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	resp, err := h.client.Logout(c.Request.Context(), &authv1.LogoutRequest{
-		AccessToken: req.AccessToken,
-	})
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"success": resp.Success})
-}
-
-// POST /api/v1/auth/refresh
-func (h *AuthHandler) RefreshToken(c *gin.Context) {
-	var req struct {
-		RefreshToken string `json:"refresh_token" binding:"required"`
-	resp, err := h.client.RefreshToken(c.Request.Context(), &authv1.RefreshTokenRequest{
-		RefreshToken: req.RefreshToken,
-	})
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{
-		"access_token":  resp.AccessToken,
-		"refresh_token": resp.RefreshToken,
-	})
-}
-
-// POST /api/v1/auth/logout
-func (h *AuthHandler) Logout(c *gin.Context) {
-	var req struct {
-		AccessToken string `json:"access_token" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -191,10 +125,16 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	})
 }
 
-// GET /api/v1/auth/profile/:user_id
-func (h *AuthHandler) GetProfile(c *gin.Context) {
-	resp, err := h.client.GetProfile(c.Request.Context(), &authv1.GetProfileRequest{
-		UserId: c.Param("user_id"),
+// POST /api/v1/auth/logout
+func (h *AuthHandler) Logout(c *gin.Context) {
+	var req struct {
+		AccessToken string `json:"access_token" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
 	resp, err := h.client.Logout(c.Request.Context(), &authv1.LogoutRequest{
 		AccessToken: req.AccessToken,
 	})
@@ -202,6 +142,7 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
 	c.JSON(http.StatusOK, gin.H{"success": resp.Success})
 }
 
@@ -212,6 +153,7 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
+
 	resp, err := h.client.GetProfile(c.Request.Context(), &authv1.GetProfileRequest{
 		UserId: userID.(string),
 	})
@@ -229,12 +171,6 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 		"avatar_url":   resp.AvatarUrl,
 		"is_suspended": resp.IsSuspended,
 		"created_at":   resp.CreatedAt,
-	c.JSON(http.StatusOK, gin.H{
-		"user_id":    resp.UserId,
-		"email":      resp.Email,
-		"full_name":  resp.FullName,
-		"role":       resp.Role,
-		"created_at": resp.CreatedAt,
 	})
 }
 
@@ -256,9 +192,6 @@ func (h *AuthHandler) ValidateToken(c *gin.Context) {
 		return
 	}
 
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
 	c.JSON(http.StatusOK, gin.H{
 		"is_valid": resp.IsValid,
 		"user_id":  resp.UserId,
