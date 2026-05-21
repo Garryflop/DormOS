@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { useAuth } from '../AuthContext'
+import { authAPI } from '../api'
 
-export default function LoginPage() {
-    const { login } = useAuth()
+export default function RegisterPage() {
     const navigate = useNavigate()
-    const [email, setEmail] = useState('')
-    const [password, setPassword] = useState('')
+    const [form, setForm] = useState({
+        full_name: '',
+        email: '',
+        password: '',
+        room_number: '',
+    })
     const [error, setError] = useState('')
     const [loading, setLoading] = useState(false)
 
@@ -24,10 +27,10 @@ export default function LoginPage() {
         setError('')
         setLoading(true)
         try {
-            await login(email, password)
-            navigate('/dashboard')
-        } catch {
-            setError('Invalid email or password')
+            await authAPI.register(form)
+            navigate('/login')
+        } catch (err: any) {
+            setError(err?.response?.data?.error || 'Registration failed')
         } finally {
             setLoading(false)
         }
@@ -47,6 +50,7 @@ export default function LoginPage() {
             }} />
 
             <div style={{ width: '100%', maxWidth: '360px', position: 'relative' }}>
+                {/* Logo */}
                 <div style={{ textAlign: 'center', marginBottom: '32px' }}>
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '24px' }}>
                         <div style={{
@@ -56,13 +60,14 @@ export default function LoginPage() {
                         <span style={{ fontSize: '15px', fontWeight: 510, color: 'var(--text)', letterSpacing: '-0.165px' }}>DormOS</span>
                     </div>
                     <h1 style={{ fontSize: '24px', fontWeight: 510, color: 'var(--text)', letterSpacing: '-0.288px', marginBottom: '6px' }}>
-                        Sign in
+                        Create account
                     </h1>
                     <p style={{ fontSize: '14px', color: 'var(--text3)', letterSpacing: '-0.13px' }}>
-                        Access your dormitory portal
+                        Join your dormitory portal
                     </p>
                 </div>
 
+                {/* Form */}
                 <div style={{
                     background: 'rgba(255,255,255,0.02)',
                     border: '1px solid rgba(255,255,255,0.08)',
@@ -70,24 +75,52 @@ export default function LoginPage() {
                 }}>
                     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                         <div>
-                            <label style={{ display: 'block', fontSize: '13px', fontWeight: 510, color: 'var(--text3)', marginBottom: '6px', letterSpacing: '-0.13px' }}>
-                                Email
+                            <label style={{ display: 'block', fontSize: '13px', fontWeight: 510, color: 'var(--text3)', marginBottom: '6px' }}>
+                                Full name
                             </label>
                             <input
-                                type="email" value={email} onChange={e => setEmail(e.target.value)}
-                                placeholder="you@example.com" required style={inputStyle}
+                                type="text" value={form.full_name} required
+                                onChange={e => setForm({ ...form, full_name: e.target.value })}
+                                placeholder="John Doe" style={inputStyle}
                                 onFocus={e => e.target.style.borderColor = 'rgba(113,112,255,0.5)'}
                                 onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.08)'}
                             />
                         </div>
 
                         <div>
-                            <label style={{ display: 'block', fontSize: '13px', fontWeight: 510, color: 'var(--text3)', marginBottom: '6px', letterSpacing: '-0.13px' }}>
+                            <label style={{ display: 'block', fontSize: '13px', fontWeight: 510, color: 'var(--text3)', marginBottom: '6px' }}>
+                                Email
+                            </label>
+                            <input
+                                type="email" value={form.email} required
+                                onChange={e => setForm({ ...form, email: e.target.value })}
+                                placeholder="you@example.com" style={inputStyle}
+                                onFocus={e => e.target.style.borderColor = 'rgba(113,112,255,0.5)'}
+                                onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.08)'}
+                            />
+                        </div>
+
+                        <div>
+                            <label style={{ display: 'block', fontSize: '13px', fontWeight: 510, color: 'var(--text3)', marginBottom: '6px' }}>
                                 Password
                             </label>
                             <input
-                                type="password" value={password} onChange={e => setPassword(e.target.value)}
-                                placeholder="••••••••" required style={inputStyle}
+                                type="password" value={form.password} required
+                                onChange={e => setForm({ ...form, password: e.target.value })}
+                                placeholder="••••••••" style={inputStyle}
+                                onFocus={e => e.target.style.borderColor = 'rgba(113,112,255,0.5)'}
+                                onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.08)'}
+                            />
+                        </div>
+
+                        <div>
+                            <label style={{ display: 'block', fontSize: '13px', fontWeight: 510, color: 'var(--text3)', marginBottom: '6px' }}>
+                                Room number
+                            </label>
+                            <input
+                                type="text" value={form.room_number} required
+                                onChange={e => setForm({ ...form, room_number: e.target.value })}
+                                placeholder="305" style={inputStyle}
                                 onFocus={e => e.target.style.borderColor = 'rgba(113,112,255,0.5)'}
                                 onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.08)'}
                             />
@@ -114,20 +147,19 @@ export default function LoginPage() {
                                 color: '#fff', fontSize: '14px', fontWeight: 510,
                                 cursor: loading ? 'not-allowed' : 'pointer',
                                 transition: 'background 0.15s', marginTop: '4px',
-                                letterSpacing: '-0.13px',
                             }}
                             onMouseOver={e => { if (!loading) (e.currentTarget.style.background = 'var(--accent-hover)') }}
                             onMouseOut={e => { if (!loading) (e.currentTarget.style.background = 'var(--accent)') }}
                         >
-                            {loading ? 'Signing in...' : 'Continue'}
+                            {loading ? 'Creating account...' : 'Create account'}
                         </button>
                     </form>
                 </div>
 
                 <p style={{ textAlign: 'center', fontSize: '13px', color: 'var(--text4)', marginTop: '16px' }}>
-                    Don't have an account?{' '}
-                    <Link to="/register" style={{ color: 'var(--accent-bright)', textDecoration: 'none' }}>
-                        Create one
+                    Already have an account?{' '}
+                    <Link to="/login" style={{ color: 'var(--accent-bright)', textDecoration: 'none' }}>
+                        Sign in
                     </Link>
                 </p>
             </div>
