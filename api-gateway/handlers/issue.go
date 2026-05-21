@@ -1,44 +1,112 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
+	"time"
 
+	issuev1 "github.com/Garryflop/DormOS-gen-go/issue/v1"
 	"github.com/gin-gonic/gin"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
-func RegisterIssueRoutes(rg *gin.RouterGroup) {
+type IssueHandler struct {
+	client issuev1.IssueServiceClient
+}
+
+type frontendIssue struct {
+	ID          string `json:"id"`
+	UserID      string `json:"user_id"`
+	RoomNumber  string `json:"room_number"`
+	CategoryID  string `json:"category_id"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Status      string `json:"status"`
+	WorkerID    string `json:"worker_id,omitempty"`
+	PhotoURL    string `json:"photo_url,omitempty"`
+	CreatedAt   string `json:"created_at"`
+	UpdatedAt   string `json:"updated_at"`
+}
+
+type frontendCategory struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type frontendWorker struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Specialty string `json:"specialty"`
+}
+
+func mapIssueToFrontend(i *issuev1.GetIssueResponse) frontendIssue {
+	var photoURL string
+	if len(i.PhotoUrls) > 0 {
+		photoURL = i.PhotoUrls[0]
+	}
+	return frontendIssue{
+		ID:          i.IssueId,
+		UserID:      i.UserId,
+		RoomNumber:  i.RoomNumber,
+		CategoryID:  i.Category, // Category contains the Category UUID in gRPC
+		Title:       i.Title,
+		Description: i.Description,
+		Status:      i.Status,
+		WorkerID:    i.AssignedWorker,
+		PhotoURL:    photoURL,
+		CreatedAt:   time.Unix(i.CreatedAt, 0).Format(time.RFC3339),
+		UpdatedAt:   time.Unix(i.UpdatedAt, 0).Format(time.RFC3339),
+	}
+}
+
+// RegisterIssueRoutes wires all issue HTTP endpoints to the real gRPC IssueService.
+func RegisterIssueRoutes(rg *gin.RouterGroup, issueServiceAddr string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	conn, err := grpc.DialContext(ctx, issueServiceAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(),
+	)
+	if err != nil {
+		panic("failed to connect to issue-service: " + err.Error())
+	}
+
+	h := &IssueHandler{client: issuev1.NewIssueServiceClient(conn)}
+
 	issues := rg.Group("/issues")
 	{
 		// student+
-		issues.POST("", createIssue)              // 1. CreateIssue
-		issues.GET("/:id", getIssue)              // 2. GetIssue
-		issues.GET("/my", listMyIssues)           // 3. ListMyIssues
-		issues.POST("/:id/comments", addComment)  // 7. AddComment
-		issues.GET("/:id/comments", listComments) // 8. ListComments
+		issues.POST("", h.CreateIssue)
+		issues.GET("/my", h.ListMyIssues)
+		issues.GET("/:id", h.GetIssue)
+		issues.POST("/:id/comments", h.AddComment)
+		issues.GET("/:id/comments", h.ListComments)
 	}
 
 	// manager+
 	mgr := rg.Group("/issues")
 	{
-		mgr.GET("", listAllIssues)                  // 4. ListAllIssues
-		mgr.PATCH("/:id/status", updateIssueStatus) // 5. UpdateIssueStatus
-		mgr.PATCH("/:id/assign", assignWorker)      // 9. AssignWorker
-		mgr.GET("/workers", listWorkers)            // 10. ListWorkers
+		mgr.GET("", h.ListAllIssues)
+		mgr.PATCH("/:id/status", h.UpdateIssueStatus)
+		mgr.PATCH("/:id/assign", h.AssignWorker)
+		mgr.GET("/workers", h.ListWorkers)
 	}
 
 	// admin
 	admin := rg.Group("/issues")
 	{
-		admin.DELETE("/:id", deleteIssue)         // 6. DeleteIssue
-		admin.POST("/categories", createCategory) // 11. CreateCategory
+		admin.DELETE("/:id", h.DeleteIssue)
+		admin.POST("/categories", h.CreateCategory)
 	}
 
 	// public
-	rg.GET("/categories", listCategories) // 12. ListCategories
+	rg.GET("/categories", h.ListCategories)
 }
 
-// 1. POST /api/v1/issues
-func createIssue(c *gin.Context) {
+// POST /api/v1/issues
+func (h *IssueHandler) CreateIssue(c *gin.Context) {
+	userID, _ := c.Get("user_id")
 	var req struct {
 		RoomNumber  string `json:"room_number" binding:"required"`
 		CategoryID  string `json:"category_id" binding:"required"`
@@ -50,56 +118,98 @@ func createIssue(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	// TODO: извлечь user_id из JWT (c.Get("user_id"))
-	// TODO: вызвать gRPC IssueService.CreateIssue
-	c.JSON(http.StatusCreated, gin.H{"message": "issue created", "data": req})
+	resp, err := h.client.CreateIssue(c.Request.Context(), &issuev1.CreateIssueRequest{
+		UserId:     userID.(string),
+		RoomNumber: req.RoomNumber,
+		CategoryId: req.CategoryID,
+		Title:      req.Title,
+		Description: req.Description,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"issue_id": resp.IssueId})
 }
 
-// 2. GET /api/v1/issues/:id
-func getIssue(c *gin.Context) {
-	id := c.Param("id")
-	// TODO: gRPC IssueService.GetIssue(id)
-	c.JSON(http.StatusOK, gin.H{"issue_id": id})
+// GET /api/v1/issues/:id
+func (h *IssueHandler) GetIssue(c *gin.Context) {
+	resp, err := h.client.GetIssue(c.Request.Context(), &issuev1.GetIssueRequest{
+		IssueId: c.Param("id"),
+	})
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, mapIssueToFrontend(resp))
 }
 
-// 3. GET /api/v1/issues/my
-func listMyIssues(c *gin.Context) {
-	// TODO: извлечь user_id из JWT
-	// TODO: gRPC IssueService.ListMyIssues(userID)
-	c.JSON(http.StatusOK, gin.H{"issues": []any{}})
+// GET /api/v1/issues/my
+func (h *IssueHandler) ListMyIssues(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	resp, err := h.client.ListMyIssues(c.Request.Context(), &issuev1.ListMyIssuesRequest{
+		UserId: userID.(string),
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	issues := make([]frontendIssue, len(resp.Issues))
+	for i, item := range resp.Issues {
+		issues[i] = mapIssueToFrontend(item)
+	}
+	c.JSON(http.StatusOK, gin.H{"issues": issues})
 }
 
-// 4. GET /api/v1/issues
-func listAllIssues(c *gin.Context) {
-	// TODO: gRPC IssueService.ListAllIssues()
-	c.JSON(http.StatusOK, gin.H{"issues": []any{}})
+// GET /api/v1/issues
+func (h *IssueHandler) ListAllIssues(c *gin.Context) {
+	resp, err := h.client.ListAllIssues(c.Request.Context(), &issuev1.ListAllIssuesRequest{})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	issues := make([]frontendIssue, len(resp.Issues))
+	for i, item := range resp.Issues {
+		issues[i] = mapIssueToFrontend(item)
+	}
+	c.JSON(http.StatusOK, gin.H{"issues": issues})
 }
 
-// 5. PATCH /api/v1/issues/:id/status
-func updateIssueStatus(c *gin.Context) {
-	id := c.Param("id")
+// PATCH /api/v1/issues/:id/status
+func (h *IssueHandler) UpdateIssueStatus(c *gin.Context) {
 	var req struct {
-		Status   string `json:"status" binding:"required"`
-		WorkerID string `json:"worker_id"`
+		Status string `json:"status" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	// TODO: gRPC IssueService.UpdateIssueStatus
-	c.JSON(http.StatusOK, gin.H{"issue_id": id, "status": req.Status})
+	resp, err := h.client.UpdateIssueStatus(c.Request.Context(), &issuev1.UpdateIssueStatusRequest{
+		IssueId:   c.Param("id"),
+		NewStatus: req.Status,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": resp.Success})
 }
 
-// 6. DELETE /api/v1/issues/:id
-func deleteIssue(c *gin.Context) {
-	id := c.Param("id")
-	// TODO: gRPC IssueService.DeleteIssue
-	c.JSON(http.StatusOK, gin.H{"deleted": id})
+// DELETE /api/v1/issues/:id
+func (h *IssueHandler) DeleteIssue(c *gin.Context) {
+	resp, err := h.client.DeleteIssue(c.Request.Context(), &issuev1.DeleteIssueRequest{
+		IssueId: c.Param("id"),
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": resp.Success})
 }
 
-// 7. POST /api/v1/issues/:id/comments
-func addComment(c *gin.Context) {
-	id := c.Param("id")
+// POST /api/v1/issues/:id/comments
+func (h *IssueHandler) AddComment(c *gin.Context) {
+	userID, _ := c.Get("user_id")
 	var req struct {
 		Text string `json:"text" binding:"required"`
 	}
@@ -107,20 +217,32 @@ func addComment(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	// TODO: gRPC IssueService.AddComment
-	c.JSON(http.StatusCreated, gin.H{"issue_id": id, "text": req.Text})
+	resp, err := h.client.AddComment(c.Request.Context(), &issuev1.AddCommentRequest{
+		IssueId: c.Param("id"),
+		UserId:  userID.(string),
+		Content: req.Text,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"comment_id": resp.CommentId})
 }
 
-// 8. GET /api/v1/issues/:id/comments
-func listComments(c *gin.Context) {
-	id := c.Param("id")
-	// TODO: gRPC IssueService.ListComments
-	c.JSON(http.StatusOK, gin.H{"issue_id": id, "comments": []any{}})
+// GET /api/v1/issues/:id/comments
+func (h *IssueHandler) ListComments(c *gin.Context) {
+	resp, err := h.client.ListComments(c.Request.Context(), &issuev1.ListCommentsRequest{
+		IssueId: c.Param("id"),
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"comments": resp.Comments})
 }
 
-// 9. PATCH /api/v1/issues/:id/assign
-func assignWorker(c *gin.Context) {
-	id := c.Param("id")
+// PATCH /api/v1/issues/:id/assign
+func (h *IssueHandler) AssignWorker(c *gin.Context) {
 	var req struct {
 		WorkerID string `json:"worker_id" binding:"required"`
 	}
@@ -128,18 +250,37 @@ func assignWorker(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	// TODO: gRPC IssueService.AssignWorker
-	c.JSON(http.StatusOK, gin.H{"issue_id": id, "worker_id": req.WorkerID})
+	resp, err := h.client.AssignWorker(c.Request.Context(), &issuev1.AssignWorkerRequest{
+		IssueId:    c.Param("id"),
+		WorkerName: req.WorkerID,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": resp.Success})
 }
 
-// 10. GET /api/v1/issues/workers
-func listWorkers(c *gin.Context) {
-	// TODO: gRPC IssueService.ListWorkers
-	c.JSON(http.StatusOK, gin.H{"workers": []any{}})
+// GET /api/v1/issues/workers
+func (h *IssueHandler) ListWorkers(c *gin.Context) {
+	resp, err := h.client.ListWorkers(c.Request.Context(), &issuev1.ListWorkersRequest{})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	workers := make([]frontendWorker, len(resp.Workers))
+	for i, w := range resp.Workers {
+		workers[i] = frontendWorker{
+			ID:        w.WorkerId,
+			Name:      w.Name,
+			Specialty: w.Specialization,
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"workers": workers})
 }
 
-// 11. POST /api/v1/issues/categories
-func createCategory(c *gin.Context) {
+// POST /api/v1/issues/categories
+func (h *IssueHandler) CreateCategory(c *gin.Context) {
 	var req struct {
 		Name string `json:"name" binding:"required"`
 	}
@@ -147,12 +288,29 @@ func createCategory(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	// TODO: gRPC IssueService.CreateCategory
-	c.JSON(http.StatusCreated, gin.H{"name": req.Name})
+	resp, err := h.client.CreateCategory(c.Request.Context(), &issuev1.CreateCategoryRequest{
+		Name: req.Name,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"category_id": resp.CategoryId})
 }
 
-// 12. GET /api/v1/categories
-func listCategories(c *gin.Context) {
-	// TODO: gRPC IssueService.ListCategories (с Redis кешем)
-	c.JSON(http.StatusOK, gin.H{"categories": []any{}})
+// GET /api/v1/categories
+func (h *IssueHandler) ListCategories(c *gin.Context) {
+	resp, err := h.client.ListCategories(c.Request.Context(), &issuev1.ListCategoriesRequest{})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	categories := make([]frontendCategory, len(resp.Categories))
+	for i, cat := range resp.Categories {
+		categories[i] = frontendCategory{
+			ID:   cat.CategoryId,
+			Name: cat.Name,
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"categories": categories})
 }

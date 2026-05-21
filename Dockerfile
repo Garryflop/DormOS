@@ -8,10 +8,8 @@ COPY . .
 # Pass the service name as a build argument
 ARG SERVICE_NAME
 
-ENV GOPROXY=https://goproxy.io,direct
+ENV GOPROXY=https://proxy.golang.org,direct
 ENV GOSUMDB=off
-
-RUN apk add --no-cache git
 
 # Build the specific service
 RUN cd ${SERVICE_NAME} && go mod download

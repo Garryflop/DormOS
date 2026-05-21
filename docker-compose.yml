@@ -52,6 +52,22 @@ services:
       timeout: 5s
       retries: 5
 
+  issue-migrate:
+    image: migrate/migrate:v4.17.0
+    container_name: dormos_issue_migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./issue-service/migrations:/migrations
+    command:
+      [
+        "-path=/migrations",
+        "-database=postgres://dormos:dormos123@postgres:5432/dormos?sslmode=disable&x-migrations-table=issue_schema_migrations",
+        "up"
+      ]
+    restart: on-failure
+
   issue-service:
     build:
       context: .
@@ -70,6 +86,24 @@ services:
         condition: service_healthy
       nats:
         condition: service_started
+      issue-migrate:
+        condition: service_completed_successfully
+
+  room-migrate:
+    image: migrate/migrate:v4.17.0
+    container_name: dormos_room_migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./room-service/migrations:/migrations
+    command:
+      [
+        "-path=/migrations",
+        "-database=postgres://dormos:dormos123@postgres:5432/dormos?sslmode=disable&x-migrations-table=room_schema_migrations",
+        "up"
+      ]
+    restart: on-failure
 
   room-service:
     build:
@@ -90,6 +124,24 @@ services:
         condition: service_healthy
       nats:
         condition: service_started
+      room-migrate:
+        condition: service_completed_successfully
+
+  file-migrate:
+    image: migrate/migrate:v4.17.0
+    container_name: dormos_file_migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./file-service/migrations:/migrations
+    command:
+      [
+        "-path=/migrations",
+        "-database=postgres://dormos:dormos123@postgres:5432/dormos?sslmode=disable&x-migrations-table=file_schema_migrations",
+        "up"
+      ]
+    restart: on-failure
 
   file-service:
     build:
@@ -114,6 +166,24 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      file-migrate:
+        condition: service_completed_successfully
+
+  auth-migrate:
+    image: migrate/migrate:v4.17.0
+    container_name: dormos_auth_migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./auth-service/migrations:/migrations
+    command:
+      [
+        "-path=/migrations",
+        "-database=postgres://dormos:dormos123@postgres:5432/dormos?sslmode=disable&x-migrations-table=auth_schema_migrations",
+        "up"
+      ]
+    restart: on-failure
 
   auth-service:
     build:
@@ -133,6 +203,24 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      auth-migrate:
+        condition: service_completed_successfully
+
+  notification-migrate:
+    image: migrate/migrate:v4.17.0
+    container_name: dormos_notification_migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./notification-service/migrations:/migrations
+    command:
+      [
+        "-path=/migrations",
+        "-database=postgres://dormos:dormos123@postgres:5432/dormos?sslmode=disable&x-migrations-table=notification_schema_migrations",
+        "up"
+      ]
+    restart: on-failure
 
   notification-service:
     build:
@@ -160,6 +248,8 @@ services:
         condition: service_healthy
       nats:
         condition: service_started
+      notification-migrate:
+        condition: service_completed_successfully
 
   api-gateway:
     build:
@@ -175,12 +265,25 @@ services:
       - ISSUE_SERVICE_ADDR=issue-service:50052
       - AUTH_SERVICE_ADDR=auth-service:50051
       - NOTIFICATION_SERVICE_ADDR=notification-service:50055
+      - JWT_SECRET=super_secret_jwt_key_change_in_production
     depends_on:
       - room-service
       - file-service
       - issue-service
       - auth-service
       - notification-service
+
+  # frontend-note: Nginx serves the static frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:80"
+    environment:
+      - VITE_API_URL=http://localhost:8080/api/v1
+    depends_on:
+      - api-gateway
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.91.0

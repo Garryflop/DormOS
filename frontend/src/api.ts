@@ -45,10 +45,9 @@ export const issuesAPI = {
 }
 
 export interface RegisterDto {
-    name: string
+    full_name: string
     email: string
     password: string
-    room_number: string
 }
 
 export interface CreateIssueDto {

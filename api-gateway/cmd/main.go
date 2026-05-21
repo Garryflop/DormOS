@@ -51,7 +51,11 @@ func main() {
 	handlers.RegisterFileRoutes(api, fileAddr)
 
 	// Issue routes
-	handlers.RegisterIssueRoutes(api)
+	issueAddr := os.Getenv("ISSUE_SERVICE_ADDR")
+	if issueAddr == "" {
+		issueAddr = "localhost:50052"
+	}
+	handlers.RegisterIssueRoutes(api, issueAddr)
 
 	// Notification and Activity routes
 	notificationAddr := os.Getenv("NOTIFICATION_SERVICE_ADDR")
