@@ -1,4 +1,4 @@
-package service
+package usecase
 
 import (
 	"context"
@@ -9,24 +9,23 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/Garryflop/DormManage/issue-service/internal/domain"
-	issuenats "github.com/Garryflop/DormManage/issue-service/internal/nats"
-	"github.com/Garryflop/DormManage/issue-service/internal/repository"
+	issuenats "github.com/Garryflop/DormManage/issue-service/internal/transport/nats"
 )
 
 type IssueService struct {
-	issues     *repository.IssueRepo
-	comments   *repository.CommentRepo
-	workers    *repository.WorkerRepo
-	categories *repository.CategoryRepo
+	issues     domain.IssueRepository
+	comments   domain.CommentRepository
+	workers    domain.WorkerRepository
+	categories domain.CategoryRepository
 	publisher  *issuenats.Publisher
 	redis      *redis.Client
 }
 
 func New(
-	issues *repository.IssueRepo,
-	comments *repository.CommentRepo,
-	workers *repository.WorkerRepo,
-	categories *repository.CategoryRepo,
+	issues domain.IssueRepository,
+	comments domain.CommentRepository,
+	workers domain.WorkerRepository,
+	categories domain.CategoryRepository,
 	publisher *issuenats.Publisher,
 	redis *redis.Client,
 ) *IssueService {
@@ -46,13 +45,15 @@ func (s *IssueService) CreateIssue(ctx context.Context, in domain.CreateIssueInp
 	if err != nil {
 		return nil, err
 	}
-	s.publisher.PublishIssueCreated(ctx, issuenats.IssueCreatedEvent{
-		IssueID:    issue.ID,
-		UserID:     issue.UserID,
-		RoomNumber: issue.RoomNumber,
-		Title:      issue.Title,
-		CreatedAt:  issue.CreatedAt,
-	})
+	if s.publisher != nil {
+		s.publisher.PublishIssueCreated(ctx, issuenats.IssueCreatedEvent{
+			IssueID:    issue.ID,
+			UserID:     issue.UserID,
+			RoomNumber: issue.RoomNumber,
+			Title:      issue.Title,
+			CreatedAt:  issue.CreatedAt,
+		})
+	}
 	return issue, nil
 }
 
@@ -66,7 +67,7 @@ func (s *IssueService) ListMyIssues(ctx context.Context, userID uuid.UUID) ([]do
 	return s.issues.ListByUser(ctx, userID)
 }
 
-// 4. ListAllIssues — с кешем Redis 30s
+// 4. ListAllIssues
 func (s *IssueService) ListAllIssues(ctx context.Context) ([]domain.Issue, error) {
 	return s.issues.ListAll(ctx)
 }
@@ -81,13 +82,15 @@ func (s *IssueService) UpdateIssueStatus(ctx context.Context, in domain.UpdateIs
 	if err != nil {
 		return nil, err
 	}
-	s.publisher.PublishIssueStatusChanged(ctx, issuenats.IssueStatusChangedEvent{
-		IssueID:   issue.ID,
-		UserID:    issue.UserID,
-		OldStatus: string(old.Status),
-		NewStatus: string(issue.Status),
-		ChangedAt: time.Now(),
-	})
+	if s.publisher != nil {
+		s.publisher.PublishIssueStatusChanged(ctx, issuenats.IssueStatusChangedEvent{
+			IssueID:   issue.ID,
+			UserID:    issue.UserID,
+			OldStatus: string(old.Status),
+			NewStatus: string(issue.Status),
+			ChangedAt: time.Now(),
+		})
+	}
 	return issue, nil
 }
 
@@ -124,7 +127,7 @@ func (s *IssueService) CreateCategory(ctx context.Context, name string) (*domain
 	return s.categories.Create(ctx, name)
 }
 
-// 12. ListCategories — с кешем Redis
+// 12. ListCategories
 func (s *IssueService) ListCategories(ctx context.Context) ([]domain.Category, error) {
 	return s.categories.List(ctx)
 }
