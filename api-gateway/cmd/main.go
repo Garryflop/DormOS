@@ -17,11 +17,15 @@ func main() {
 
 	roomAddr := os.Getenv("ROOM_SERVICE_ADDR")
 	if roomAddr == "" {
-		roomAddr = "localhost:50052"
+		roomAddr = "localhost:50054"
 	}
 	fileAddr := os.Getenv("FILE_SERVICE_ADDR")
 	if fileAddr == "" {
 		fileAddr = "localhost:50053"
+	}
+	issueAddr := os.Getenv("ISSUE_SERVICE_ADDR")
+	if issueAddr == "" {
+		issueAddr = "localhost:50052"
 	}
 
 	r := gin.Default()
@@ -36,14 +40,9 @@ func main() {
 	api := r.Group("/api/v1")
 	api.Use(middleware.Auth())
 
-	// N: Room and File routes
 	handlers.RegisterRoomRoutes(api, roomAddr)
 	handlers.RegisterFileRoutes(api, fileAddr)
-
-	// D: auth routes → handlers/auth.go (TODO)
-	// E: issue routes → handlers/issue.go (TODO)
-	handlers.RegisterIssueRoutes(api)
-	// T: activity routes → handlers/activity.go (TODO)
+	handlers.RegisterIssueRoutes(api, issueAddr)
 
 	log.Printf("API Gateway starting on :%s\n", port)
 	if err := r.Run(":" + port); err != nil {
