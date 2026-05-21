@@ -6,7 +6,9 @@ import (
 	"log"
 	"net"
 
+	filev1 "github.com/Garryflop/DormOS-gen-go/file/v1"
 	"github.com/Garryflop/DormManage/file-service/internal/config"
+	"github.com/Garryflop/DormManage/file-service/internal/handler"
 	"github.com/Garryflop/DormManage/file-service/internal/repository"
 	"github.com/Garryflop/DormManage/file-service/internal/storage"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -55,10 +57,9 @@ func main() {
 
 	// ── Wire up layers ─────────────────────────────────────────
 	repo := repository.NewFileRepository(db)
-	_ = repo
-	_ = minioStorage
 	_ = rdb
-	// TODO: Register generated FileService server here once DormOS-gen-go is imported
+
+	fileServer := handler.NewFileGRPCServer(repo, minioStorage)
 
 	// ── gRPC Server ────────────────────────────────────────────
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", cfg.GRPCPort))
@@ -70,6 +71,7 @@ func main() {
 		grpc.ChainUnaryInterceptor(loggingInterceptor),
 	)
 
+	filev1.RegisterFileServiceServer(grpcServer, fileServer)
 	reflection.Register(grpcServer)
 
 	log.Printf("✓ File Service gRPC listening on :%s", cfg.GRPCPort)
