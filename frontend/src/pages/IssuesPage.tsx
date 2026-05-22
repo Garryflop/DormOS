@@ -14,7 +14,8 @@ import {
 	Clock, 
 	AlertCircle,
 	MessageSquare,
-	Trash2
+	Trash2,
+	ShieldAlert
 } from 'lucide-react'
 
 const STATUS_COLOR: Record<string, string> = {
@@ -50,7 +51,8 @@ export default function IssuesPage() {
 	const [uploading, setUploading] = useState(false)
 	const [submitting, setSubmitting] = useState(false)
 
-	const isStaff = user?.role === 'manager' || user?.role === 'admin' || user?.role === 'dorm_admin'
+	const isStaff = user?.role === 'manager' || user?.role === 'admin'
+	const hasRoom = !!user?.room_number && user?.room_number !== 'Unassigned'
 
 	const loadIssues = async () => {
 		const res = await (isStaff ? issuesAPI.listAll() : issuesAPI.listMy())
@@ -182,7 +184,7 @@ export default function IssuesPage() {
 							{isStaff ? 'All student reports' : 'Your filed complaints'} · {issues.length} total
 						</p>
 					</div>
-					{!isStaff && (
+					{!isStaff && hasRoom && (
 						<button
 							onClick={() => setShowForm(!showForm)}
 							style={{
@@ -196,6 +198,27 @@ export default function IssuesPage() {
 						</button>
 					)}
 				</div>
+
+				{!isStaff && !hasRoom && (
+					<div style={{
+						background: 'rgba(239, 68, 68, 0.05)',
+						border: '1px dashed rgba(239, 68, 68, 0.25)',
+						borderRadius: '12px',
+						padding: '16px',
+						display: 'flex',
+						alignItems: 'center',
+						gap: '12px',
+						color: 'var(--text2)',
+						fontSize: '13.5px',
+						marginTop: '12px',
+						width: '100%'
+					}}>
+						<ShieldAlert size={18} style={{ color: '#ef4444', flexShrink: 0 }} />
+						<span>
+							<strong>Access Restricted:</strong> You must be an officially assigned dormitory resident to submit maintenance issues. Please wait until the administrator assigns you to a room.
+						</span>
+					</div>
+				)}
 
 				{/* Filters */}
 				<div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
@@ -221,7 +244,7 @@ export default function IssuesPage() {
 				</div>
 
 				{/* Create form */}
-				{showForm && !isStaff && (
+				{showForm && !isStaff && hasRoom && (
 					<div style={{
 						background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(113,112,255,0.2)',
 						borderRadius: '12px', padding: '20px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '16px'
@@ -259,7 +282,7 @@ export default function IssuesPage() {
 							}}>
 								{form.photo_url ? (
 									<div style={{ position: 'relative', width: '100%' }}>
-										<img src={form.photo_url} alt="Uploaded preview" style={{ width: '100%', maxHeight: '160px', objectFit: 'cover', borderRadius: '6px' }} />
+										<img src={form.photo_url.replace('http://minio:9000', 'http://localhost:9000')} alt="Uploaded preview" style={{ width: '100%', maxHeight: '160px', objectFit: 'cover', borderRadius: '6px' }} />
 										<button 
 											type="button" 
 											onClick={() => setForm(prev => ({ ...prev, photo_url: '' }))}
@@ -408,9 +431,9 @@ export default function IssuesPage() {
 					{/* Image Preview (MinIO URL) */}
 					{selected.photo_url && (
 						<div style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)', background: '#000' }}>
-							<a href={selected.photo_url} target="_blank" rel="noopener noreferrer" title="Click to view full image">
+							<a href={selected.photo_url.replace('http://minio:9000', 'http://localhost:9000')} target="_blank" rel="noopener noreferrer" title="Click to view full image">
 								<img 
-									src={selected.photo_url} 
+									src={selected.photo_url.replace('http://minio:9000', 'http://localhost:9000')} 
 									alt="Attached context" 
 									style={{ width: '100%', maxHeight: '200px', objectFit: 'contain', display: 'block', cursor: 'zoom-in' }} 
 								/>
@@ -492,7 +515,7 @@ export default function IssuesPage() {
 										<span>{c.user_id === user?.id ? 'You' : 'Staff'}</span>
 										<span>{new Date(c.created_at).toLocaleDateString()}</span>
 									</div>
-									<div style={{ fontSize: '12.5px', color: 'var(--text2)' }}>{c.text}</div>
+									<div style={{ fontSize: '12.5px', color: 'var(--text2)' }}>{c.content || c.text}</div>
 								</div>
 							))}
 						</div>

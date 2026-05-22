@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"time"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/minio/minio-go/v7"
@@ -37,6 +37,22 @@ func NewMinioStorage(endpoint, accessKey, secretKey, bucket string, useSSL bool)
 		}
 	}
 
+	// Set bucket policy to public read-only
+	policy := fmt.Sprintf(`{
+		"Version": "2012-10-17",
+		"Statement": [
+			{
+				"Effect": "Allow",
+				"Principal": {"AWS": ["*"]},
+				"Action": ["s3:GetObject"],
+				"Resource": ["arn:aws:s3:::%s/*"]
+			}
+		]
+	}`, bucket)
+	if err := client.SetBucketPolicy(ctx, bucket, policy); err != nil {
+		return nil, fmt.Errorf("minio set bucket policy: %w", err)
+	}
+
 	return &MinioStorage{client: client, bucket: bucket}, nil
 }
 
@@ -54,11 +70,10 @@ func (s *MinioStorage) Upload(ctx context.Context, filename, contentType string,
 
 // GetPresignedURL returns a temporary URL valid for 1 hour
 func (s *MinioStorage) GetPresignedURL(ctx context.Context, objectKey string) (string, error) {
-	url, err := s.client.PresignedGetObject(ctx, s.bucket, objectKey, time.Hour, nil)
-	if err != nil {
-		return "", fmt.Errorf("minio presign: %w", err)
-	}
-	return url.String(), nil
+	// Return a clean public URL without any signature since the bucket is public read-only
+	endpoint := s.client.EndpointURL().String()
+	endpoint = strings.Replace(endpoint, "minio:9000", "localhost:9000", 1)
+	return fmt.Sprintf("%s/%s/%s", endpoint, s.bucket, objectKey), nil
 }
 
 // Delete removes a file from MinIO

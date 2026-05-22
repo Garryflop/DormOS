@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS residents (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id      UUID        NOT NULL UNIQUE,
     room_id      UUID        NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
-    role         VARCHAR(20) NOT NULL DEFAULT 'student' CHECK (role IN ('student', 'manager', 'admin')),
+    role         VARCHAR(50) NOT NULL DEFAULT 'student' CHECK (role IN ('student', 'floor_warden', 'dorm_admin', 'finance')),
     check_in_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     check_out_at TIMESTAMPTZ
 );

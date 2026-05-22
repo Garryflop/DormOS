@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/dormos/notification-service/internal/domain"
@@ -64,15 +65,23 @@ func (h *Handler) GetEvent(
 		)
 	}
 
+	userIDs, _ := h.activityUC.GetRegisteredUserIDs(ctx, event.ID)
+	desc := event.Description
+	if len(userIDs) > 0 {
+		desc = desc + "\n\n[participants:" + strings.Join(userIDs, ",") + "]"
+	} else {
+		desc = desc + "\n\n[participants:]"
+	}
+
 	return &activityv1.GetEventResponse{
 		EventId:         event.ID,
 		Title:           event.Title,
-		Description:     event.Description,
+		Description:     desc,
 		Location:        event.Location,
 		StartTime:       event.EventDate.Unix(),
 		EndTime:         event.EventDate.Unix(),
 		MaxParticipants: event.MaxParticipants,
-		RegisteredCount: 0,
+		RegisteredCount: int32(len(userIDs)),
 		CreatedAt:       event.CreatedAt.Unix(),
 	}, nil
 }
@@ -96,16 +105,23 @@ func (h *Handler) ListEvents(
 	var items []*activityv1.GetEventResponse
 
 	for _, e := range events {
+		userIDs, _ := h.activityUC.GetRegisteredUserIDs(ctx, e.ID)
+		desc := e.Description
+		if len(userIDs) > 0 {
+			desc = desc + "\n\n[participants:" + strings.Join(userIDs, ",") + "]"
+		} else {
+			desc = desc + "\n\n[participants:]"
+		}
 
 		items = append(items, &activityv1.GetEventResponse{
 			EventId:         e.ID,
 			Title:           e.Title,
-			Description:     e.Description,
+			Description:     desc,
 			Location:        e.Location,
 			StartTime:       e.EventDate.Unix(),
 			EndTime:         e.EventDate.Unix(),
 			MaxParticipants: e.MaxParticipants,
-			RegisteredCount: 0,
+			RegisteredCount: int32(len(userIDs)),
 			CreatedAt:       e.CreatedAt.Unix(),
 		})
 	}

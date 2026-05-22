@@ -2,19 +2,13 @@ FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
 
-# Copy shared pkg module
-COPY pkg/ ./pkg/
-
-# Copy issue-service
-COPY issue-service/ ./issue-service/
+# Copy everything including the root vendor folder
+COPY . .
 
 WORKDIR /app/issue-service
 
-ENV GOPROXY=https://proxy.golang.org,direct
-ENV GOSUMDB=off
-
-RUN go mod download
-RUN go build -o issue-service ./cmd/main.go
+# Build the service using the root vendor directory (completely offline, instant!)
+RUN CGO_ENABLED=0 GOOS=linux go build -mod=vendor -o issue-service ./cmd/main.go
 
 FROM alpine:3.19
 

@@ -2,18 +2,14 @@ FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
 
-# We use Go workspaces, so we need to copy everything
+# We use Go workspaces, so we copy everything, including the vendor directory
 COPY . .
 
 # Pass the service name as a build argument
 ARG SERVICE_NAME
 
-ENV GOPROXY=https://proxy.golang.org,direct
-ENV GOSUMDB=off
-
-# Build the specific service
-RUN cd ${SERVICE_NAME} && go mod download
-RUN cd ${SERVICE_NAME} && CGO_ENABLED=0 GOOS=linux go build -o /app/service ./cmd/main.go
+# Build the specific service using the local vendor directory (completely offline, instant build!)
+RUN cd ${SERVICE_NAME} && CGO_ENABLED=0 GOOS=linux go build -mod=vendor -o /app/service ./cmd/main.go
 
 FROM alpine:latest
 WORKDIR /app

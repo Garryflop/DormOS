@@ -26,7 +26,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
-  const adminRoles = ['admin', 'manager', 'dorm_admin', 'floor_warden']
+  const adminRoles = ['admin', 'manager']
   if (!user || !adminRoles.includes(user.role)) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }

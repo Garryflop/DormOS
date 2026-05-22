@@ -262,3 +262,7 @@ func (uc *ActivityUseCase) RecordAttendance(
 
 	return nil
 }
+
+func (uc *ActivityUseCase) GetRegisteredUserIDs(ctx context.Context, eventID string) ([]string, error) {
+	return uc.repo.GetRegisteredUserIDs(ctx, eventID)
+}

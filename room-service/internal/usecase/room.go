@@ -81,6 +81,8 @@ func (uc *roomUseCase) AssignResident(ctx context.Context, userID, roomID string
 			"user_id": userID,
 			"room_id": roomID,
 			"event":   "resident.assigned",
+			"title":   "Room Assigned",
+			"message": fmt.Sprintf("Congratulations! You have been successfully assigned to Room %s.", resident.RoomNumber),
 		})
 		_ = uc.nc.Publish("resident.assigned", payload)
 	}
@@ -100,6 +102,8 @@ func (uc *roomUseCase) RemoveResident(ctx context.Context, userID string) error 
 		payload, _ := json.Marshal(map[string]string{
 			"user_id": userID,
 			"event":   "resident.removed",
+			"title":   "Evicted from Room",
+			"message": "You have been successfully evicted from your room by the administrator.",
 		})
 		_ = uc.nc.Publish("resident.removed", payload)
 	}
@@ -129,6 +133,17 @@ func (uc *roomUseCase) UpdateResidentRole(ctx context.Context, userID, role stri
 	}
 	if err := uc.repo.UpdateResidentRole(ctx, userID, role); err != nil {
 		return status.Errorf(codes.Internal, "failed to update role: %v", err)
+	}
+
+	// Publish NATS event on role update
+	if uc.nc != nil {
+		payload, _ := json.Marshal(map[string]string{
+			"user_id": userID,
+			"event":   "role.updated",
+			"title":   "System Role Updated",
+			"message": fmt.Sprintf("The administrator has updated your system role to: %s.", role),
+		})
+		_ = uc.nc.Publish("role.updated", payload)
 	}
 	return nil
 }

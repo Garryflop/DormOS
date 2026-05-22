@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
-import { issuesAPI, roomsAPI, residentsAPI } from '../api'
+import { issuesAPI, roomsAPI, residentsAPI, authAPI } from '../api'
 import type { Issue, Worker } from '../api'
 import { 
 	Settings, 
@@ -29,6 +29,7 @@ export default function AdminPage() {
 	const { user } = useAuth()
 	const navigate = useNavigate()
 	const [activeTab, setActiveTab] = useState<'issues' | 'residents' | 'rooms'>('issues')
+	const [expandedRoom, setExpandedRoom] = useState<string | null>(null)
 	
 	// Data states
 	const [issues, setIssues] = useState<Issue[]>([])
@@ -41,8 +42,17 @@ export default function AdminPage() {
 	const [newRoom, setNewRoom] = useState({ room_number: '', floor: 1, capacity: 4 })
 	const [showAddRoom, setShowAddRoom] = useState(false)
 
-	const isAdmin = user?.role === 'admin' || user?.role === 'dorm_admin'
-	const isStaff = user?.role === 'manager' || user?.role === 'admin' || user?.role === 'dorm_admin'
+	// Form states for creating user
+	const [showCreateUser, setShowCreateUser] = useState(false)
+	const [newUserForm, setNewUserForm] = useState({
+		fullName: '',
+		email: '',
+		password: '',
+		role: 'student'
+	})
+
+	const isAdmin = user?.role === 'admin'
+	const isStaff = user?.role === 'manager' || user?.role === 'admin'
 
 	// If a standard student tries to access, deny access immediately
 	if (!isStaff) {
@@ -154,6 +164,36 @@ export default function AdminPage() {
 			alert('New Room successfully created!')
 		} catch (err) {
 			console.error('Failed to create room:', err)
+		}
+	}
+
+	const handleCreateUser = async (e: React.FormEvent) => {
+		e.preventDefault()
+		if (!isAdmin) return
+		try {
+			const res = await authAPI.register({
+				full_name: newUserForm.fullName,
+				email: newUserForm.email,
+				password: newUserForm.password
+			})
+			const newUserId = res.data.user_id
+
+			if (newUserForm.role !== 'student') {
+				await residentsAPI.updateRole(newUserId, newUserForm.role)
+			}
+
+			setNewUserForm({
+				fullName: '',
+				email: '',
+				password: '',
+				role: 'student'
+			})
+			setShowCreateUser(false)
+			loadAllData()
+			alert('New User/Staff successfully registered!')
+		} catch (err) {
+			console.error('Failed to create user:', err)
+			alert('Failed to register user. Make sure email is unique and password is >= 8 chars.')
 		}
 	}
 
@@ -321,71 +361,185 @@ export default function AdminPage() {
 
 					{/* Tab 2: Residents (Admin Only) */}
 					{activeTab === 'residents' && isAdmin && (
-						<div style={{
-							background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.06)',
-							borderRadius: '12px', overflow: 'hidden',
-						}}>
-							<div style={{
-								display: 'grid', gridTemplateColumns: '1fr 120px 140px 100px',
-								padding: '12px 18px', background: 'rgba(255,255,255,0.01)',
-								borderBottom: '1px solid rgba(255,255,255,0.05)',
-							}}>
-								{['Resident UUID', 'Room No', 'System Role', 'Actions'].map(h => (
-									<div key={h} style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text4)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-										{h}
-									</div>
-								))}
-							</div>
-
-							{residents.length === 0 ? (
-								<div style={{ padding: '40px', textAlign: 'center', color: 'var(--text4)', fontSize: '13px' }}>
-									No assigned residents in dormitory.
+						<div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+							
+							{/* Create User Form */}
+							<div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+								<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+									<h2 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text2)' }}>Dormitory Residents Registry</h2>
+									<button 
+										onClick={() => setShowCreateUser(!showCreateUser)}
+										style={{
+											padding: '6px 12px', background: 'var(--accent)', border: 'none',
+											borderRadius: '6px', color: '#fff', fontSize: '12px', fontWeight: 510,
+											cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
+										}}
+									>
+										<Plus size={14} /> Add User/Staff
+									</button>
 								</div>
-							) : residents.map((res, i) => (
-								<div
-									key={res.resident_id || res.user_id}
-									style={{
-										display: 'grid', gridTemplateColumns: '1fr 120px 140px 100px',
-										padding: '14px 18px', alignItems: 'center',
-										borderBottom: i < residents.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
-									}}
-								>
-									<div style={{ fontFamily: 'monospace', fontSize: '12px', color: 'var(--text3)' }}>
-										{res.user_id}
-									</div>
-									<div style={{ fontSize: '13px', color: 'var(--text)', fontWeight: 500 }}>
-										Rm {res.room_number || 'Unassigned'}
-									</div>
-									
-									{/* Update Resident Role (Student-Scoped 12 Endpoint check!) */}
-									<div>
-										<select
-											value={res.role || 'student'}
-											onChange={e => handleRoleChange(res.user_id, e.target.value)}
-											style={{ ...inputStyle, fontSize: '12px', padding: '4px 8px' }}
+
+								{showCreateUser && (
+									<form onSubmit={handleCreateUser} style={{
+										display: 'flex', gap: '12px', background: 'rgba(255,255,255,0.01)',
+										border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '16px',
+										alignItems: 'center', flexWrap: 'wrap'
+									}}>
+										<input 
+											style={{ ...inputStyle, flex: 1, minWidth: '150px' }} placeholder="Full Name" required
+											value={newUserForm.fullName} onChange={e => setNewUserForm({ ...newUserForm, fullName: e.target.value })}
+										/>
+										<input 
+											type="email" style={{ ...inputStyle, flex: 1, minWidth: '180px' }} placeholder="Email Address" required
+											value={newUserForm.email} onChange={e => setNewUserForm({ ...newUserForm, email: e.target.value })}
+										/>
+										<input 
+											type="password" style={{ ...inputStyle, flex: 1, minWidth: '150px' }} placeholder="Password (min 8 chars)" required
+											value={newUserForm.password} onChange={e => setNewUserForm({ ...newUserForm, password: e.target.value })}
+										/>
+										<select 
+											style={{ ...inputStyle, width: '150px' }}
+											value={newUserForm.role} onChange={e => setNewUserForm({ ...newUserForm, role: e.target.value })}
 										>
 											<option value="student">Student</option>
-											<option value="manager">Floor Warden</option>
+											<option value="manager">Manager</option>
 											<option value="admin">System Admin</option>
 										</select>
-									</div>
-
-									{/* Remove Resident (Student-Scoped 12 Endpoint check!) */}
-									<div>
-										<button
-											onClick={() => handleEvictResident(res.user_id)}
+										<button 
+											type="submit"
 											style={{
-												padding: '6px 10px', background: 'rgba(239, 68, 68, 0.1)',
-												border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '6px',
-												color: '#ef4444', fontSize: '11px', cursor: 'pointer',
-												display: 'flex', alignItems: 'center', gap: '4px'
+												padding: '8px 16px', background: 'var(--success)', border: 'none',
+												borderRadius: '6px', color: '#fff', fontSize: '12px', fontWeight: 510,
+												cursor: 'pointer'
 											}}
 										>
-											<UserMinus size={12} /> Evict
+											Create Account
 										</button>
-									</div>
+									</form>
+								)}
+							</div>
+
+							<div style={{
+								background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.06)',
+								borderRadius: '12px', overflow: 'hidden',
+							}}>
+								<div style={{
+									display: 'grid', gridTemplateColumns: '1fr 180px 140px 100px',
+									padding: '12px 18px', background: 'rgba(255,255,255,0.01)',
+									borderBottom: '1px solid rgba(255,255,255,0.05)',
+								}}>
+									{['Resident UUID & Info', 'Room Assignment', 'System Role', 'Actions'].map(h => (
+										<div key={h} style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text4)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+											{h}
+										</div>
+									))}
 								</div>
-							))}
+
+								{residents.length === 0 ? (
+									<div style={{ padding: '40px', textAlign: 'center', color: 'var(--text4)', fontSize: '13px' }}>
+										No registered residents or users found.
+									</div>
+								) : residents.map((res, i) => {
+									const parts = (res.user_id || '').split(':')
+									const uuid = parts[0] || res.user_id || ''
+									const fullName = parts[1] || 'Registered Student'
+									const email = parts[2] || ''
+									const hasRoom = res.room_number && res.room_number !== 'Unassigned'
+
+									return (
+										<div
+											key={uuid + '-' + i}
+											style={{
+												display: 'grid', gridTemplateColumns: '1fr 180px 140px 100px',
+												padding: '14px 18px', alignItems: 'center',
+												borderBottom: i < residents.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+											}}
+										>
+											<div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+												<div style={{ fontSize: '13px', fontWeight: 510, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+													{fullName}
+												</div>
+												{email && (
+													<div style={{ fontSize: '11px', color: 'var(--text4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+														{email}
+													</div>
+												)}
+												<div style={{ fontFamily: 'monospace', fontSize: '10px', color: 'rgba(255,255,255,0.2)' }}>
+													ID: {uuid}
+												</div>
+											</div>
+
+											<div style={{ fontSize: '13px', color: 'var(--text)' }}>
+												{hasRoom ? (
+													<span style={{ fontWeight: 500, color: 'var(--success)' }}>Rm {res.room_number}</span>
+												) : (
+													<select
+														defaultValue=""
+														onChange={async (e) => {
+															const roomId = e.target.value
+															if (!roomId) return
+															try {
+																await residentsAPI.assign(uuid, roomId)
+																loadAllData()
+																alert('Resident successfully assigned to room!')
+															} catch (err) {
+																console.error(err)
+																alert('Failed to assign room')
+															}
+														}}
+														style={{
+															...inputStyle, padding: '4px 6px', fontSize: '12px', width: '150px',
+															background: 'rgba(255,255,255,0.04)', color: 'var(--text2)',
+															border: '1px solid rgba(255,255,255,0.1)'
+														}}
+													>
+														<option value="">Assign Room...</option>
+														{rooms.map(rm => (
+															<option key={rm.room_id} value={rm.room_id}>Room {rm.room_number} ({rm.occupied || 0}/{rm.capacity})</option>
+														))}
+													</select>
+												)}
+											</div>
+											
+											{/* Update Resident Role */}
+											<div>
+												<select
+													value={res.role || 'student'}
+													onChange={e => handleRoleChange(uuid, e.target.value)}
+													style={{
+														...inputStyle, fontSize: '12px', padding: '4px 8px',
+														background: 'rgba(255,255,255,0.04)', color: 'var(--text2)',
+														border: '1px solid rgba(255,255,255,0.1)'
+													}}
+												>
+													<option value="student">Student</option>
+													<option value="manager">Manager</option>
+													<option value="admin">System Admin</option>
+												</select>
+											</div>
+
+											{/* Remove Resident */}
+											<div>
+												{hasRoom ? (
+													<button
+														onClick={() => handleEvictResident(uuid)}
+														style={{
+															padding: '6px 10px', background: 'rgba(239, 68, 68, 0.1)',
+															border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '6px',
+															color: '#ef4444', fontSize: '11px', cursor: 'pointer',
+															display: 'flex', alignItems: 'center', gap: '4px'
+														}}
+													>
+														<UserMinus size={12} /> Evict
+													</button>
+												) : (
+													<span style={{ fontSize: '11px', color: 'var(--text4)', fontStyle: 'italic' }}>Unassigned</span>
+												)}
+											</div>
+										</div>
+									)
+								})}
+							</div>
 						</div>
 					)}
 
@@ -470,26 +624,97 @@ export default function AdminPage() {
 										No rooms registered in the system.
 									</div>
 								) : rooms.map((rm, i) => (
-									<div
-										key={rm.room_id}
-										style={{
-											display: 'grid', gridTemplateColumns: '1fr 120px 120px 120px',
-											padding: '14px 18px', alignItems: 'center',
-											borderBottom: i < rooms.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
-										}}
-									>
-										<div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>
-											Room {rm.room_number}
+									<div key={rm.room_id} style={{ borderBottom: i < rooms.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+										<div
+											onClick={() => setExpandedRoom(expandedRoom === rm.room_id ? null : rm.room_id)}
+											style={{
+												display: 'grid', gridTemplateColumns: '1fr 120px 120px 120px',
+												padding: '14px 18px', alignItems: 'center',
+												cursor: 'pointer', transition: 'background 0.2s'
+											}}
+											onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.015)'}
+											onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+										>
+											<div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>
+												Room {rm.room_number}
+											</div>
+											<div style={{ fontSize: '13px', color: 'var(--text3)' }}>
+												Floor {rm.floor}
+											</div>
+											<div style={{ fontSize: '13px', color: 'var(--text3)' }}>
+												{rm.capacity} beds
+											</div>
+											<div style={{ fontSize: '13px', color: rm.occupied >= rm.capacity ? '#ef4444' : '#10b981', fontWeight: 600 }}>
+												{rm.occupied || 0} / {rm.capacity} beds filled
+											</div>
 										</div>
-										<div style={{ fontSize: '13px', color: 'var(--text3)' }}>
-											Floor {rm.floor}
-										</div>
-										<div style={{ fontSize: '13px', color: 'var(--text3)' }}>
-											{rm.capacity} beds
-										</div>
-										<div style={{ fontSize: '13px', color: rm.occupied >= rm.capacity ? '#ef4444' : '#10b981', fontWeight: 600 }}>
-											{rm.occupied || 0} / {rm.capacity} beds filled
-										</div>
+
+										{expandedRoom === rm.room_id && (
+											<div style={{
+												padding: '12px 18px 18px 18px',
+												background: 'rgba(255,255,255,0.005)',
+												borderTop: '1px solid rgba(255,255,255,0.03)',
+												display: 'flex',
+												flexDirection: 'column',
+												gap: '8px'
+											}}>
+												<div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text4)', textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.05em' }}>
+													Assigned Room Residents
+												</div>
+												{!rm.residents || rm.residents.length === 0 ? (
+													<div style={{ fontSize: '12px', color: 'var(--text4)', fontStyle: 'italic', paddingLeft: '4px' }}>
+														No occupants assigned to this room yet.
+													</div>
+												) : (
+													<div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+														{rm.residents.map((res: any) => (
+															<div key={res.user_id} style={{
+																display: 'flex',
+																justifyContent: 'space-between',
+																alignItems: 'center',
+																background: 'rgba(255,255,255,0.01)',
+																border: '1px solid rgba(255,255,255,0.04)',
+																borderRadius: '8px',
+																padding: '8px 12px'
+															}}>
+																<div>
+																	<div style={{ fontSize: '12.5px', fontWeight: 510, color: 'var(--text2)' }}>
+																		{res.full_name} <span style={{ fontSize: '11px', color: 'var(--text4)', marginLeft: '6px' }}>({res.role})</span>
+																	</div>
+																	<div style={{ fontSize: '10px', fontFamily: 'monospace', color: 'rgba(255,255,255,0.2)', marginTop: '2px' }}>
+																		ID: {res.user_id}
+																	</div>
+																</div>
+																<button
+																	onClick={async (e) => {
+																		e.stopPropagation()
+																		if (!window.confirm(`Are you sure you want to evict ${res.full_name} from Room ${rm.room_number}?`)) return
+																		try {
+																			await residentsAPI.remove(res.user_id)
+																			loadAllData()
+																			alert('Resident successfully evicted!')
+																		} catch (err) {
+																			console.error(err)
+																			alert('Failed to evict resident')
+																		}
+																	}}
+																	style={{
+																		padding: '4px 8px', background: 'rgba(239, 68, 68, 0.08)',
+																		border: '1px solid rgba(239, 68, 68, 0.15)', borderRadius: '6px',
+																		color: '#ef4444', fontSize: '11px', cursor: 'pointer',
+																		transition: 'background 0.2s'
+																	}}
+																	onMouseOver={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)'}
+																	onMouseOut={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'}
+																>
+																	Evict
+																</button>
+															</div>
+														))}
+													</div>
+												)}
+											</div>
+										)}
 									</div>
 								))}
 							</div>

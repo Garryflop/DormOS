@@ -52,14 +52,12 @@ func Auth() gin.HandlerFunc {
 }
 
 // RequireRole checks that the authenticated user has at least the required role.
-// Roles hierarchy: student < floor_warden < manager/dorm_admin < admin
+// Roles hierarchy: student < manager < admin
 func RequireRole(minRole string) gin.HandlerFunc {
 	roleLevel := map[string]int{
-		"student":      1,
-		"floor_warden": 2,
-		"manager":      2,
-		"dorm_admin":   3,
-		"admin":        3,
+		"student": 1,
+		"manager": 2,
+		"admin":   3,
 	}
 	return func(c *gin.Context) {
 		role, exists := c.Get("role")

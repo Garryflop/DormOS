@@ -32,6 +32,7 @@ func (s *Subscriber) Subscribe() error {
 		{"resident.assigned", s.handleResidentAssigned},
 		{"resident.removed", s.handleResidentRemoved},
 		{"password.reset", s.handlePasswordReset},
+		{"role.updated", s.handleRoleUpdated},
 	}
 
 	for _, sub := range subjects {
@@ -53,7 +54,7 @@ func (s *Subscriber) handleIssueCreated(msg *nats.Msg) {
 	err := s.notificationUC.SendNotification(ctx,
 		p.UserID,
 		p.Email,
-		"Новая жалоба создана",
+		"New Issue Created",
 		p.Message,
 	)
 	if err != nil {
@@ -71,7 +72,7 @@ func (s *Subscriber) handleIssueStatusChanged(msg *nats.Msg) {
 	err := s.notificationUC.SendNotification(ctx,
 		p.UserID,
 		p.Email,
-		"Статус вашей жалобы изменён",
+		"Issue Status Changed",
 		p.Message,
 	)
 	if err != nil {
@@ -124,11 +125,21 @@ func (s *Subscriber) handleResidentAssigned(msg *nats.Msg) {
 		return
 	}
 	ctx := context.Background()
+	
+	title := p.Title
+	if title == "" {
+		title = "Room Assigned"
+	}
+	msgText := p.Message
+	if msgText == "" {
+		msgText = "You have been successfully assigned to a room."
+	}
+
 	err := s.notificationUC.SendNotification(ctx,
 		p.UserID,
 		p.Email,
-		"Вы заселены в общежитие",
-		p.Message,
+		title,
+		msgText,
 	)
 	if err != nil {
 		log.Printf("[NATS][resident.assigned] SendNotification error: %v", err)
@@ -142,11 +153,21 @@ func (s *Subscriber) handleResidentRemoved(msg *nats.Msg) {
 		return
 	}
 	ctx := context.Background()
+
+	title := p.Title
+	if title == "" {
+		title = "Evicted from Room"
+	}
+	msgText := p.Message
+	if msgText == "" {
+		msgText = "You have been successfully evicted from your room by the administrator."
+	}
+
 	err := s.notificationUC.SendNotification(ctx,
 		p.UserID,
 		p.Email,
-		"Вы выселены из общежития",
-		p.Message,
+		title,
+		msgText,
 	)
 	if err != nil {
 		log.Printf("[NATS][resident.removed] SendNotification error: %v", err)
@@ -163,10 +184,38 @@ func (s *Subscriber) handlePasswordReset(msg *nats.Msg) {
 	err := s.notificationUC.SendNotification(ctx,
 		p.UserID,
 		p.Email,
-		"Сброс пароля DormOS",
+		"DormOS Password Reset",
 		p.Message,
 	)
 	if err != nil {
 		log.Printf("[NATS][password.reset] SendNotification error: %v", err)
+	}
+}
+
+func (s *Subscriber) handleRoleUpdated(msg *nats.Msg) {
+	var p domain.NATSEventPayload
+	if err := json.Unmarshal(msg.Data, &p); err != nil {
+		log.Printf("[NATS][role.updated] unmarshal error: %v", err)
+		return
+	}
+	ctx := context.Background()
+
+	title := p.Title
+	if title == "" {
+		title = "System Role Updated"
+	}
+	msgText := p.Message
+	if msgText == "" {
+		msgText = "The administrator has updated your system role."
+	}
+
+	err := s.notificationUC.SendNotification(ctx,
+		p.UserID,
+		p.Email,
+		title,
+		msgText,
+	)
+	if err != nil {
+		log.Printf("[NATS][role.updated] SendNotification error: %v", err)
 	}
 }

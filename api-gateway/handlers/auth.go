@@ -3,9 +3,11 @@ package handlers
 import (
 	"context"
 	"net/http"
+	"os"
 	"time"
 
 	authv1 "github.com/Garryflop/DormOS-gen-go/auth/v1"
+	roomv1 "github.com/Garryflop/DormOS-gen-go/room/v1"
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -162,6 +164,24 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 		return
 	}
 
+	// Dynamic profile aggregation: fetch room_number from room-service
+	roomNumber := ""
+	roomAddr := os.Getenv("ROOM_SERVICE_ADDR")
+	if roomAddr == "" {
+		roomAddr = "localhost:50054"
+	}
+	roomConn, err := grpc.Dial(roomAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err == nil {
+		defer roomConn.Close()
+		roomClient := roomv1.NewRoomServiceClient(roomConn)
+		resProfile, err := roomClient.GetResident(c.Request.Context(), &roomv1.GetResidentRequest{
+			UserId: userID.(string),
+		})
+		if err == nil && resProfile != nil {
+			roomNumber = resProfile.RoomNumber
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"user_id":      resp.UserId,
 		"email":        resp.Email,
@@ -171,6 +191,7 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 		"avatar_url":   resp.AvatarUrl,
 		"is_suspended": resp.IsSuspended,
 		"created_at":   resp.CreatedAt,
+		"room_number":  roomNumber,
 	})
 }
 

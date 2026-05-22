@@ -14,6 +14,9 @@ type RoomRepository struct {
 }
 
 func NewRoomRepository(db *pgxpool.Pool) domain.RoomRepository {
+	// Dynamically update the check constraint in residents table on startup
+	_, _ = db.Exec(context.Background(), `ALTER TABLE residents DROP CONSTRAINT IF EXISTS residents_role_check`)
+	_, _ = db.Exec(context.Background(), `ALTER TABLE residents ADD CONSTRAINT residents_role_check CHECK (role IN ('student', 'manager', 'admin'))`)
 	return &RoomRepository{db: db}
 }
 
@@ -102,8 +105,19 @@ func (r *RoomRepository) GetResident(ctx context.Context, userID string) (*domai
 }
 
 func (r *RoomRepository) ListResidents(ctx context.Context, roomID, role string) ([]*domain.Resident, error) {
-	query := `SELECT r.id, r.user_id, r.room_id, ro.room_number, r.role, EXTRACT(EPOCH FROM r.check_in_at)::bigint
-	          FROM residents r JOIN rooms ro ON ro.id = r.room_id WHERE 1=1`
+	query := `SELECT 
+				COALESCE(r.id::text, '') AS resident_id, 
+				u.id::text AS user_id, 
+				u.full_name || ':' || u.email AS user_meta,
+				COALESCE(r.room_id::text, '') AS room_id, 
+				COALESCE(ro.room_number, 'Unassigned') AS room_number, 
+				u.role, 
+				COALESCE(EXTRACT(EPOCH FROM r.check_in_at)::bigint, 0)
+	          FROM users u
+	          LEFT JOIN residents r ON r.user_id = u.id
+	          LEFT JOIN rooms ro ON ro.id = r.room_id
+	          WHERE u.role != 'admin'`
+	
 	args := []any{}
 	i := 1
 	if roomID != "" {
@@ -112,9 +126,11 @@ func (r *RoomRepository) ListResidents(ctx context.Context, roomID, role string)
 		i++
 	}
 	if role != "" {
-		query += fmt.Sprintf(` AND r.role = $%d`, i)
+		query += fmt.Sprintf(` AND u.role = $%d`, i)
 		args = append(args, role)
 	}
+
+	query += ` ORDER BY u.full_name`
 
 	rows, err := r.db.Query(ctx, query, args...)
 	if err != nil {
@@ -125,16 +141,26 @@ func (r *RoomRepository) ListResidents(ctx context.Context, roomID, role string)
 	var list []*domain.Resident
 	for rows.Next() {
 		res := &domain.Resident{}
-		if err := rows.Scan(&res.ID, &res.UserID, &res.RoomID, &res.RoomNumber, &res.Role, &res.CheckInAt); err != nil {
+		var userMeta string
+		if err := rows.Scan(&res.ID, &res.UserID, &userMeta, &res.RoomID, &res.RoomNumber, &res.Role, &res.CheckInAt); err != nil {
 			return nil, err
 		}
+		// Pack user details into UserID as "uuid:full_name:email"
+		res.UserID = res.UserID + ":" + userMeta
+		res.RoomID = res.RoomNumber
 		list = append(list, res)
 	}
 	return list, nil
 }
 
 func (r *RoomRepository) UpdateResidentRole(ctx context.Context, userID, role string) error {
-	_, err := r.db.Exec(ctx, `UPDATE residents SET role = $1 WHERE user_id = $2`, role, userID)
+	// Update in users table (auth-service) so they log in with the new role
+	_, err := r.db.Exec(ctx, `UPDATE users SET role = $1 WHERE id = $2`, role, userID)
+	if err != nil {
+		return err
+	}
+	// Update in residents table (room-service)
+	_, err = r.db.Exec(ctx, `UPDATE residents SET role = $1 WHERE user_id = $2`, role, userID)
 	return err
 }
 

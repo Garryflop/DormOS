@@ -72,3 +72,14 @@ func (r *NotificationRepository) MarkAllAsRead(ctx context.Context, userID strin
 	}
 	return nil
 }
+
+// GetUserEmail retrieves a user's email address by their ID
+func (r *NotificationRepository) GetUserEmail(ctx context.Context, userID string) (string, error) {
+	var email string
+	query := `SELECT email FROM users WHERE id = $1`
+	err := r.db.QueryRow(ctx, query, userID).Scan(&email)
+	if err != nil {
+		return "", err
+	}
+	return email, nil
+}

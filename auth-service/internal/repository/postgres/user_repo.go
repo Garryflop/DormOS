@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/Garryflop/DormManage/auth-service/internal/domain"
@@ -17,6 +18,8 @@ type UserRepository struct {
 }
 
 func NewUserRepository(db *pgxpool.Pool) domain.UserRepository {
+	_, _ = db.Exec(context.Background(), `ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check`)
+	_, _ = db.Exec(context.Background(), `ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('student', 'manager', 'admin'))`)
 	return &UserRepository{db: db}
 }
 
@@ -30,7 +33,15 @@ func (r *UserRepository) Create(ctx context.Context, user *domain.User) (*domain
 		user.ID, user.Email, user.Password, user.FullName, user.Phone,
 		string(user.Role), user.AvatarURL, user.IsSuspended, user.CreatedAt, user.UpdatedAt,
 	)
-	return scanUser(row)
+	res, err := scanUser(row)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return nil, domain.ErrEmailTaken
+		}
+		return nil, err
+	}
+	return res, nil
 }
 
 func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {

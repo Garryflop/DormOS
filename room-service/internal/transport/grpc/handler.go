@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"strings"
 
 	"github.com/Garryflop/DormManage/room-service/internal/domain"
 	roomv1 "github.com/Garryflop/DormOS-gen-go/room/v1"
@@ -57,14 +58,41 @@ func (h *RoomHandler) ListRooms(ctx context.Context, req *roomv1.ListRoomsReques
 		return nil, status.Errorf(codes.Internal, "failed to list rooms: %v", err)
 	}
 	
+	// Fetch all residents to associate details
+	residents, _ := h.uc.ListResidents(ctx, "", "")
+	roomResidents := make(map[string][]*roomv1.ResidentInfo)
+	if residents != nil {
+		for _, res := range residents {
+			roomNum := res.RoomID
+			if roomNum != "" && roomNum != "Unassigned" {
+				parts := strings.Split(res.UserID, ":")
+				resUUID := res.UserID
+				resName := "Registered Student"
+				if len(parts) > 1 {
+					resUUID = parts[0]
+					resName = parts[1]
+				}
+				roomResidents[roomNum] = append(roomResidents[roomNum], &roomv1.ResidentInfo{
+					UserId:   resUUID,
+					FullName: resName,
+					Role:     res.Role,
+				})
+			}
+		}
+	}
+	
 	respRooms := make([]*roomv1.GetRoomResponse, len(rooms))
 	for i, r := range rooms {
+		resInfos := roomResidents[r.RoomNumber]
+		occupiedCount := int32(len(resInfos))
+		
 		respRooms[i] = &roomv1.GetRoomResponse{
 			RoomId:     r.ID,
 			RoomNumber: r.RoomNumber,
 			Floor:      int32(r.Floor),
 			Capacity:   int32(r.Capacity),
-			Occupied:   0, // Simplify for list
+			Occupied:   occupiedCount,
+			Residents:  resInfos,
 		}
 	}
 	

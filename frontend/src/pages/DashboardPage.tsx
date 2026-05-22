@@ -65,11 +65,13 @@ export default function DashboardPage() {
 	const [loading, setLoading] = useState(true)
 
 	useEffect(() => {
-		issuesAPI.listMy()
+		const isStaff = user?.role === 'manager' || user?.role === 'admin'
+		const fetchIssues = isStaff ? issuesAPI.listAll() : issuesAPI.listMy()
+		fetchIssues
 			.then(res => setIssues(res.data.issues || []))
 			.catch(() => setIssues([]))
 			.finally(() => setLoading(false))
-	}, [])
+	}, [user])
 
 	const stats = {
 		total: issues.length,
@@ -79,7 +81,7 @@ export default function DashboardPage() {
 	}
 
 	return (
-		<div style={{ maxWidth: '1000px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
+		<div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '32px' }}>
 			{/* Header */}
 			<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
 				<div>

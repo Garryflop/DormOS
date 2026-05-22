@@ -235,11 +235,11 @@ services:
       - REDIS_PASSWORD=redis123
       - NATS_URL=nats://nats:4222
       - GRPC_PORT=50055
-      - SMTP_HOST=smtp.gmail.com
-      - SMTP_PORT=587
-      - SMTP_USERNAME=dummy
-      - SMTP_PASSWORD=dummy
-      - SMTP_FROM=dummy@dormos.local
+      - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USERNAME=${SMTP_USERNAME:-dummy}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-dummy}
+      - SMTP_FROM=${SMTP_FROM:-dummy@dormos.local}
       - OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
     depends_on:
       postgres:

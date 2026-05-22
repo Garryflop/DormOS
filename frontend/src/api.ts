@@ -69,6 +69,22 @@ export const filesAPI = {
     getUrl: (id: string) => api.get(`/files/${id}/url`),
 }
 
+export const eventsAPI = {
+    list: () => api.get('/events'),
+    create: (data: { title: string; description: string; location: string; start_time: number; end_time: number; max_participants: number }) => api.post('/events', data),
+    update: (id: string, data: { title: string; description: string; location: string; start_time: number; end_time: number; max_participants: number }) => api.put(`/events/${id}`, data),
+    delete: (id: string) => api.delete(`/events/${id}`),
+    register: (id: string) => api.post(`/events/${id}/register`),
+    cancel: (id: string) => api.post(`/events/${id}/cancel`),
+}
+
+export const notificationsAPI = {
+    list: (userId: string) => api.get('/notifications', { params: { user_id: userId } }),
+    markAsRead: (id: string) => api.patch(`/notifications/${id}/read`),
+    markAllAsRead: (userId: string) => api.post('/notifications/read-all', { user_id: userId }),
+    send: (data: { user_id: string; title: string; message: string; channel: string }) => api.post('/notifications', data),
+}
+
 export interface RegisterDto {
     full_name: string
     email: string
@@ -99,4 +115,4 @@ export interface Issue {
 
 export interface Category { id: string; name: string }
 export interface Worker { id: string; name: string; specialty: string }
-export interface Comment { id: string; issue_id: string; user_id: string; text: string; created_at: string }
+export interface Comment { id: string; issue_id: string; user_id: string; content: string; created_at: string }

@@ -15,6 +15,7 @@ type NotificationRepository interface {
 	ListByUserID(ctx context.Context, userID string) ([]*domain.Notification, error)
 	MarkAsRead(ctx context.Context, id string) error
 	MarkAllAsRead(ctx context.Context, userID string) error
+	GetUserEmail(ctx context.Context, userID string) (string, error)
 }
 
 type SMTPConfig struct {
@@ -42,6 +43,14 @@ func (uc *NotificationUseCase) SendNotification(ctx context.Context, userID, ema
 	}
 	if _, err := uc.repo.Create(ctx, notif); err != nil {
 		return fmt.Errorf("NotificationUseCase.SendNotification DB: %w", err)
+	}
+
+	if email == "" {
+		if fetchedEmail, err := uc.repo.GetUserEmail(ctx, userID); err == nil {
+			email = fetchedEmail
+		} else {
+			log.Printf("[SMTP] failed to lookup email for userID %s: %v", userID, err)
+		}
 	}
 
 	if email != "" {

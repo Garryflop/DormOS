@@ -7,7 +7,7 @@ interface User {
     name: string
     email: string
     room_number: string
-    role: 'student' | 'manager' | 'admin' | 'dorm_admin' | 'floor_warden' | 'finance'
+    role: 'student' | 'manager' | 'admin'
 }
 
 interface AuthContextType {
