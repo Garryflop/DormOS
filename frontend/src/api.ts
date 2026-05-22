@@ -27,7 +27,7 @@ export default api
 export const authAPI = {
     login: (email: string, password: string) => api.post('/auth/login', { email, password }),
     register: (data: RegisterDto) => api.post('/auth/register', data),
-    me: () => api.get('/auth/me'),
+    me: () => api.get('/auth/profile'),
 }
 
 export const issuesAPI = {

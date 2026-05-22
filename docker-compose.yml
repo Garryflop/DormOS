@@ -115,6 +115,52 @@ services:
       minio:
         condition: service_healthy
 
+  auth-service:
+    build:
+      context: .
+      args:
+        SERVICE_NAME: auth-service
+    ports:
+      - "50051:50051"
+    environment:
+      - DATABASE_URL=postgres://dormos:dormos123@postgres:5432/dormos?sslmode=disable
+      - REDIS_URL=redis://:redis123@redis:6379/0
+      - GRPC_PORT=50051
+      - JWT_SECRET=super_secret_jwt_key_change_in_production
+      - OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  notification-service:
+    build:
+      context: .
+      args:
+        SERVICE_NAME: notification-service
+    ports:
+      - "50055:50055"
+    environment:
+      - DATABASE_URL=postgres://dormos:dormos123@postgres:5432/dormos?sslmode=disable
+      - REDIS_ADDR=redis:6379
+      - REDIS_PASSWORD=redis123
+      - NATS_URL=nats://nats:4222
+      - GRPC_PORT=50055
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=587
+      - SMTP_USERNAME=dummy
+      - SMTP_PASSWORD=dummy
+      - SMTP_FROM=dummy@dormos.local
+      - OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_started
+
   api-gateway:
     build:
       context: .
@@ -127,10 +173,14 @@ services:
       - ROOM_SERVICE_ADDR=room-service:50054
       - FILE_SERVICE_ADDR=file-service:50053
       - ISSUE_SERVICE_ADDR=issue-service:50052
+      - AUTH_SERVICE_ADDR=auth-service:50051
+      - NOTIFICATION_SERVICE_ADDR=notification-service:50055
     depends_on:
       - room-service
       - file-service
       - issue-service
+      - auth-service
+      - notification-service
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.91.0

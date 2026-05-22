@@ -10,6 +10,11 @@ COPY issue-service/ ./issue-service/
 
 WORKDIR /app/issue-service
 
+ENV GOPROXY=https://goproxy.io,direct
+ENV GOSUMDB=off
+
+RUN apk add --no-cache git
+
 RUN go mod download
 RUN go build -o issue-service ./cmd/main.go
 
