@@ -50,10 +50,12 @@ func (uc *roomUseCase) ListRooms(ctx context.Context, floor int) ([]*domain.Room
 	cacheKey := fmt.Sprintf("rooms:floor:%d", floor)
 	
 	// Try Redis cache first
-	if cached, err := uc.rdb.Get(ctx, cacheKey).Bytes(); err == nil {
-		var rooms []*domain.Room
-		if json.Unmarshal(cached, &rooms) == nil {
-			return rooms, nil
+	if uc.rdb != nil {
+		if cached, err := uc.rdb.Get(ctx, cacheKey).Bytes(); err == nil {
+			var rooms []*domain.Room
+			if json.Unmarshal(cached, &rooms) == nil {
+				return rooms, nil
+			}
 		}
 	}
 
@@ -63,8 +65,10 @@ func (uc *roomUseCase) ListRooms(ctx context.Context, floor int) ([]*domain.Room
 	}
 
 	// Cache for 30 seconds
-	if data, err := json.Marshal(rooms); err == nil {
-		uc.rdb.Set(ctx, cacheKey, data, 30*1e9)
+	if uc.rdb != nil {
+		if data, err := json.Marshal(rooms); err == nil {
+			uc.rdb.Set(ctx, cacheKey, data, 30*1e9)
+		}
 	}
 	return rooms, nil
 }
@@ -88,7 +92,9 @@ func (uc *roomUseCase) AssignResident(ctx context.Context, userID, roomID string
 	}
 
 	// Invalidate room cache
-	uc.rdb.Del(ctx, "rooms:floor:0")
+	if uc.rdb != nil {
+		uc.rdb.Del(ctx, "rooms:floor:0")
+	}
 
 	return resident.ID, nil
 }
@@ -151,10 +157,12 @@ func (uc *roomUseCase) UpdateResidentRole(ctx context.Context, userID, role stri
 func (uc *roomUseCase) GetDashboardStats(ctx context.Context) (*domain.DashboardStats, error) {
 	cacheKey := "dashboard:stats"
 
-	if cached, err := uc.rdb.Get(ctx, cacheKey).Bytes(); err == nil {
-		var s domain.DashboardStats
-		if json.Unmarshal(cached, &s) == nil {
-			return &s, nil
+	if uc.rdb != nil {
+		if cached, err := uc.rdb.Get(ctx, cacheKey).Bytes(); err == nil {
+			var s domain.DashboardStats
+			if json.Unmarshal(cached, &s) == nil {
+				return &s, nil
+			}
 		}
 	}
 
@@ -163,8 +171,10 @@ func (uc *roomUseCase) GetDashboardStats(ctx context.Context) (*domain.Dashboard
 		return nil, status.Errorf(codes.Internal, "failed to get stats: %v", err)
 	}
 
-	if data, jerr := json.Marshal(stats); jerr == nil {
-		uc.rdb.Set(ctx, cacheKey, data, 60*1e9)
+	if uc.rdb != nil {
+		if data, jerr := json.Marshal(stats); jerr == nil {
+			uc.rdb.Set(ctx, cacheKey, data, 60*1e9)
+		}
 	}
 	return stats, nil
 }
