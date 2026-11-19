@@ -1,0 +1,565 @@
+{
+	"info": {
+		"_postman_id": "8f830a7d-536f-42e1-a0f5-30fae3b0bf88",
+		"name": "DormOS - Student Scope (Room & File Services)",
+		"description": "Postman Collection to test exactly the 12 gRPC endpoints of the student scope (Room Service & File Service) connected via API Gateway.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Authentication (Prerequisite)",
+			"item": [
+				{
+					"name": "Register",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData.token) {",
+									"    pm.environment.set(\"token\", jsonData.token);",
+									"    console.log(\"Token automatically saved to environment!\");",
+									"}"
+								],
+								"type": "javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"test_student@dormos.local\",\n    \"password\": \"Password123!\",\n    \"full_name\": \"Diasbek Nurdauletov\",\n    \"role\": \"admin\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/register",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"register"
+							]
+						},
+						"description": "Registers a new user. Change 'role' to 'admin' to have permissions to run all Room endpoints."
+					},
+					"response": []
+				},
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData.token) {",
+									"    pm.environment.set(\"token\", jsonData.token);",
+									"    console.log(\"Token automatically saved to environment!\");",
+									"}"
+								],
+								"type": "javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"test_student@dormos.local\",\n    \"password\": \"Password123!\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/login",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"login"
+							]
+						},
+						"description": "Authenticates user and returns JWT token."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "2. Room Service Endpoints",
+			"item": [
+				{
+					"name": "Create Room",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"room_number\": \"305A\",\n    \"floor\": 3,\n    \"capacity\": 4\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/rooms",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"rooms"
+							]
+						},
+						"description": "Creates a new room. Requires Admin privileges."
+					},
+					"response": []
+				},
+				{
+					"name": "List Rooms",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/rooms?floor=3",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"rooms"
+							],
+							"query": [
+								{
+									"key": "floor",
+									"value": "3"
+								}
+							]
+						},
+						"description": "Lists all rooms. Optional query parameter: floor"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Room by ID",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/rooms/{{roomId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"rooms",
+								"{{roomId}}"
+							]
+						},
+						"description": "Retrieves room details by its ID (save a room ID to environment to test)."
+					},
+					"response": []
+				},
+				{
+					"name": "Assign Resident to Room",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"user_id\": \"test_user_uuid_123\",\n    \"room_id\": \"{{roomId}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/residents",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"residents"
+							]
+						},
+						"description": "Assigns a resident (user_id) to a specific room_id."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Resident Info",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/residents/test_user_uuid_123",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"residents",
+								"test_user_uuid_123"
+							]
+						},
+						"description": "Retrieves assignment details for a specific resident."
+					},
+					"response": []
+				},
+				{
+					"name": "List Residents",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/residents?role=student",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"residents"
+							],
+							"query": [
+								{
+									"key": "role",
+									"value": "student"
+								}
+							]
+						},
+						"description": "Lists all residents, optionally filtered by room_id or role."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Resident Role",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"role\": \"manager\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/residents/test_user_uuid_123/role",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"residents",
+								"test_user_uuid_123",
+								"role"
+							]
+						},
+						"description": "Updates the resident's role inside the room (options: student, manager, admin)."
+					},
+					"response": []
+				},
+				{
+					"name": "Remove Resident from Room",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/residents/test_user_uuid_123",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"residents",
+								"test_user_uuid_123"
+							]
+						},
+						"description": "Removes a resident from their room, freeing up a bed."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Dashboard Stats",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/dashboard/stats",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"dashboard",
+								"stats"
+							]
+						},
+						"description": "Retrieves high-level analytics about room capacities and resident levels."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "3. File Service Endpoints",
+			"item": [
+				{
+					"name": "Upload File",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"event": "test",
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData.file_id) {",
+									"    pm.environment.set(\"fileId\", jsonData.file_id);",
+									"    console.log(\"fileId auto-saved to environment!\");",
+									"}"
+								],
+								"type": "javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "text",
+									"value": "This is sample text content pretending to be a file.",
+									"description": "In Postman you can change this to a 'File' type, select a file, and send it!"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/files/upload",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"files",
+								"upload"
+							]
+						},
+						"description": "Uploads a file to MinIO storage. In Postman, switch the body parameter 'file' to 'File' type to upload real images or documents!"
+					},
+					"response": []
+				},
+				{
+					"name": "Get File URL",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/files/{{fileId}}/url",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"files",
+								"{{fileId}}",
+								"url"
+							]
+						},
+						"description": "Generates a 1-hour presigned URL to view/download the uploaded file."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete File",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/files/{{fileId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"files",
+								"{{fileId}}"
+							]
+						},
+						"description": "Permanently deletes the file from PostgreSQL metadata and MinIO storage."
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8000/api/v1",
+			"type": "string"
+		},
+		{
+			"key": "token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "roomId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "fileId",
+			"value": "",
+			"type": "string"
+		}
+	]
+}

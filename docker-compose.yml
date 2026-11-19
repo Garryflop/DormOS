@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:15-alpine
@@ -33,9 +31,9 @@ services:
   nats:
     image: nats:2.9-alpine
     ports:
-      - "4222:4222"  # Client port
-      - "8222:8222"  # HTTP management port
-    command: ["-js"] # Enable JetStream if needed
+      - "4222:4222"
+      - "8222:8222"
+    command: ["-js"]
 
   minio:
     image: minio/minio
@@ -54,7 +52,292 @@ services:
       timeout: 5s
       retries: 5
 
+  issue-migrate:
+    image: migrate/migrate:v4.17.0
+    container_name: dormos_issue_migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./issue-service/migrations:/migrations
+    command:
+      [
+        "-path=/migrations",
+        "-database=postgres://dormos:dormos123@postgres:5432/dormos?sslmode=disable&x-migrations-table=issue_schema_migrations",
+        "up"
+      ]
+    restart: on-failure
+
+  issue-service:
+    build:
+      context: .
+      dockerfile: issue-service/Dockerfile
+    environment:
+      DATABASE_URL: postgres://dormos:dormos123@postgres:5432/dormos?sslmode=disable
+      REDIS_URL: redis://:redis123@redis:6379/0
+      NATS_URL: nats://nats:4222
+      ISSUE_SERVICE_PORT: "50052"
+    ports:
+      - "50052:50052"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_started
+      issue-migrate:
+        condition: service_completed_successfully
+
+  room-migrate:
+    image: migrate/migrate:v4.17.0
+    container_name: dormos_room_migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./room-service/migrations:/migrations
+    command:
+      [
+        "-path=/migrations",
+        "-database=postgres://dormos:dormos123@postgres:5432/dormos?sslmode=disable&x-migrations-table=room_schema_migrations",
+        "up"
+      ]
+    restart: on-failure
+
+  room-service:
+    build:
+      context: .
+      args:
+        SERVICE_NAME: room-service
+    ports:
+      - "50054:50054"
+    environment:
+      - DATABASE_URL=postgres://dormos:dormos123@postgres:5432/dormos?sslmode=disable
+      - REDIS_URL=redis://:redis123@redis:6379/0
+      - NATS_URL=nats://nats:4222
+      - ROOM_SERVICE_PORT=50054
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_started
+      room-migrate:
+        condition: service_completed_successfully
+
+  file-migrate:
+    image: migrate/migrate:v4.17.0
+    container_name: dormos_file_migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./file-service/migrations:/migrations
+    command:
+      [
+        "-path=/migrations",
+        "-database=postgres://dormos:dormos123@postgres:5432/dormos?sslmode=disable&x-migrations-table=file_schema_migrations",
+        "up"
+      ]
+    restart: on-failure
+
+  file-service:
+    build:
+      context: .
+      args:
+        SERVICE_NAME: file-service
+    ports:
+      - "50053:50053"
+    environment:
+      - DATABASE_URL=postgres://dormos:dormos123@postgres:5432/dormos?sslmode=disable
+      - REDIS_URL=redis://:redis123@redis:6379/0
+      - FILE_SERVICE_PORT=50053
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=admin
+      - MINIO_SECRET_KEY=admin123
+      - MINIO_BUCKET=dormos-files
+      - MINIO_USE_SSL=false
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      file-migrate:
+        condition: service_completed_successfully
+
+  auth-migrate:
+    image: migrate/migrate:v4.17.0
+    container_name: dormos_auth_migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./auth-service/migrations:/migrations
+    command:
+      [
+        "-path=/migrations",
+        "-database=postgres://dormos:dormos123@postgres:5432/dormos?sslmode=disable&x-migrations-table=auth_schema_migrations",
+        "up"
+      ]
+    restart: on-failure
+
+  auth-service:
+    build:
+      context: .
+      args:
+        SERVICE_NAME: auth-service
+    ports:
+      - "50051:50051"
+    environment:
+      - DATABASE_URL=postgres://dormos:dormos123@postgres:5432/dormos?sslmode=disable
+      - REDIS_URL=redis://:redis123@redis:6379/0
+      - GRPC_PORT=50051
+      - JWT_SECRET=super_secret_jwt_key_change_in_production
+      - OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      auth-migrate:
+        condition: service_completed_successfully
+
+  notification-migrate:
+    image: migrate/migrate:v4.17.0
+    container_name: dormos_notification_migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./notification-service/migrations:/migrations
+    command:
+      [
+        "-path=/migrations",
+        "-database=postgres://dormos:dormos123@postgres:5432/dormos?sslmode=disable&x-migrations-table=notification_schema_migrations",
+        "up"
+      ]
+    restart: on-failure
+
+  notification-service:
+    build:
+      context: .
+      args:
+        SERVICE_NAME: notification-service
+    ports:
+      - "50055:50055"
+    environment:
+      - DATABASE_URL=postgres://dormos:dormos123@postgres:5432/dormos?sslmode=disable
+      - REDIS_ADDR=redis:6379
+      - REDIS_PASSWORD=redis123
+      - NATS_URL=nats://nats:4222
+      - GRPC_PORT=50055
+      - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USERNAME=${SMTP_USERNAME:-dummy}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-dummy}
+      - SMTP_FROM=${SMTP_FROM:-dummy@dormos.local}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_started
+      notification-migrate:
+        condition: service_completed_successfully
+
+  api-gateway:
+    build:
+      context: .
+      args:
+        SERVICE_NAME: api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - API_GATEWAY_PORT=8080
+      - ROOM_SERVICE_ADDR=room-service:50054
+      - FILE_SERVICE_ADDR=file-service:50053
+      - ISSUE_SERVICE_ADDR=issue-service:50052
+      - AUTH_SERVICE_ADDR=auth-service:50051
+      - NOTIFICATION_SERVICE_ADDR=notification-service:50055
+      - JWT_SECRET=super_secret_jwt_key_change_in_production
+    depends_on:
+      - room-service
+      - file-service
+      - issue-service
+      - auth-service
+      - notification-service
+
+  # frontend-note: Nginx serves the static frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:80"
+    environment:
+      - VITE_API_URL=http://localhost:8080/api/v1
+    depends_on:
+      - api-gateway
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.91.0
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "8889:8889"
+
+  prometheus:
+    image: prom/prometheus:v2.48.1
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    depends_on:
+      - otel-collector
+
+  tempo:
+    image: grafana/tempo:2.3.1
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./tempo.yaml:/etc/tempo.yaml
+    ports:
+      - "3200:3200"
+
+  loki:
+    image: grafana/loki:2.9.3
+    ports:
+      - "3100:3100"
+
+  grafana:
+    image: grafana/grafana:10.2.3
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+    volumes:
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+      - tempo
+      - loki
+
 volumes:
   postgres-data:
   redis-data:
   minio-data:
+  prometheus-data:
+  grafana-data:

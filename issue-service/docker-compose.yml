@@ -1,0 +1,17 @@
+issue-service:
+  build: ./issue-service
+  environment:
+    DATABASE_URL: postgres://dormos:dormos123@postgres:5432/dormos?sslmode=disable
+    REDIS_ADDR: redis:6379
+    REDIS_PASSWORD: redis123
+    NATS_URL: nats://nats:4222
+    GRPC_PORT: 50052
+  ports:
+    - "50052:50052"
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+    nats:
+      condition: service_started
