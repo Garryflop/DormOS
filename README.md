@@ -2,10 +2,10 @@
 
 # DormOS
 
-**Платформа для управления студенческим общежитием**
+**A dormitory management platform for student housing**
 
-Заявки на ремонт, заселение по комнатам, события для жильцов и уведомления в одном интерфейсе.
-Микросервисы на Go, связь по gRPC и NATS, веб-клиент на React.
+Maintenance requests, room assignments, community events and notifications in one place.
+Go microservices talking over gRPC and NATS, with a React web client.
 
 ![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)
 ![gRPC](https://img.shields.io/badge/gRPC-Protobuf-244c5a?logo=grpc&logoColor=white)
@@ -15,125 +15,125 @@
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
 
-<img src="docs/demo.gif" alt="Демонстрация DormOS" width="100%">
+<img src="docs/demo.gif" alt="DormOS demo" width="100%">
 
-<sub>Студент входит в систему, отвечает в заявке на ремонт, записывается на событие и читает уведомления. Затем администратор открывает панель управления.</sub>
+<sub>A student signs in, replies in a maintenance request, registers for an event and checks notifications. Then an administrator opens the control panel.</sub>
 
 </div>
 
 ---
 
-## Содержание
+## Table of Contents
 
-- [Возможности](#возможности)
-- [Скриншоты](#скриншоты)
-- [Архитектура](#архитектура)
-- [Технологии](#технологии)
-- [Структура репозитория](#структура-репозитория)
-- [Быстрый старт](#быстрый-старт)
+- [Features](#features)
+- [Screenshots](#screenshots)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Repository Structure](#repository-structure)
+- [Getting Started](#getting-started)
 - [REST API](#rest-api)
-- [Наблюдаемость](#наблюдаемость)
-- [Тесты](#тесты)
+- [Observability](#observability)
+- [Tests](#tests)
 
-## Возможности
+## Features
 
-В системе три роли: **student**, **manager** и **admin**. Интерфейс и доступные действия зависят от роли пользователя.
+DormOS has three roles: **student**, **manager** and **admin**. The interface and the available actions depend on the user's role.
 
-### Студент
+### Student
 
-- Регистрация и вход по email и паролю, JWT access и refresh токены.
-- Дашборд со статистикой своих заявок и ближайшими событиями общежития.
-- Подача заявки на ремонт: заголовок, описание, категория, номер комнаты и фото проблемы (файл уходит в MinIO через File Service).
-- Переписка с персоналом в комментариях к заявке.
-- Запись на события и отмена записи, очки активности за участие.
-- Центр уведомлений: смена статуса заявки, новые события, заселение в комнату, смена роли.
-- Подать заявку можно только после заселения в комнату, до этого интерфейс показывает подсказку.
+- Sign up and sign in with email and password, JWT access and refresh tokens.
+- Dashboard with stats on your own requests and upcoming dormitory events.
+- File a maintenance request: title, description, category, room number and a photo of the problem (the file is stored in MinIO via the File Service).
+- Discuss a request with staff in its comment thread.
+- Register for events or cancel a registration, earn activity points for participating.
+- Notification center: request status changes, new events, room assignment, role changes.
+- Requests can only be filed after the student is assigned to a room, until then the interface shows a hint.
 
-### Менеджер
+### Manager
 
-- Все заявки общежития с фильтром по статусу.
-- Смена статуса заявки (`open`, `in_progress`, `resolved`, `closed`) и назначение мастера.
+- All dormitory requests with a status filter.
+- Change request status (`open`, `in_progress`, `resolved`, `closed`) and assign a maintenance worker.
 
-### Администратор
+### Admin
 
-- Всё, что доступно менеджеру, плюс удаление заявок.
-- Реестр жильцов: заселение в комнату, выселение, смена роли, создание пользователей и сотрудников.
-- Реестр комнат: создание комнат, этаж, вместимость, заполненность и список жильцов каждой комнаты.
-- Создание и удаление событий общежития.
+- Everything a manager can do, plus deleting requests.
+- Residents registry: assign to a room, evict, change role, create users and staff accounts.
+- Rooms registry: create rooms, see floor, capacity, occupancy and the list of residents in each room.
+- Create and delete dormitory events.
 
-## Скриншоты
+## Screenshots
 
-> На скриншотах демонстрационные данные.
+> The screenshots use demo data.
 
-### Вход и регистрация
-
-<table>
-  <tr>
-    <td width="50%"><img src="docs/screenshots/login.png" alt="Вход"></td>
-    <td width="50%"><img src="docs/screenshots/register.png" alt="Регистрация"></td>
-  </tr>
-</table>
-
-### Дашборд студента
-
-Статистика по заявкам, последние обращения и ближайшие события.
-
-<img src="docs/screenshots/dashboard.png" alt="Дашборд студента">
-
-### Заявки на ремонт
+### Sign in and sign up
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/screenshots/issues.png" alt="Список заявок и карточка заявки"></td>
-    <td width="50%"><img src="docs/screenshots/new-issue.png" alt="Новая заявка"></td>
-  </tr>
-  <tr>
-    <td align="center"><sub>Список заявок и карточка с комментариями</sub></td>
-    <td align="center"><sub>Форма новой заявки с загрузкой фото</sub></td>
+    <td width="50%"><img src="docs/screenshots/login.png" alt="Sign in"></td>
+    <td width="50%"><img src="docs/screenshots/register.png" alt="Sign up"></td>
   </tr>
 </table>
 
-### Уведомления и события
+### Student dashboard
+
+Request stats, recent requests and upcoming events.
+
+<img src="docs/screenshots/dashboard.png" alt="Student dashboard">
+
+### Maintenance requests
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/screenshots/notifications.png" alt="Уведомления"></td>
-    <td width="50%"><img src="docs/screenshots/activities.png" alt="События"></td>
+    <td width="50%"><img src="docs/screenshots/issues.png" alt="Request list and request details"></td>
+    <td width="50%"><img src="docs/screenshots/new-issue.png" alt="New request"></td>
   </tr>
   <tr>
-    <td align="center"><sub>Центр уведомлений с непрочитанными сообщениями</sub></td>
-    <td align="center"><sub>События, запись на них и очки активности</sub></td>
+    <td align="center"><sub>Request list and a request with its comments</sub></td>
+    <td align="center"><sub>New request form with photo upload</sub></td>
   </tr>
 </table>
 
-### Панель администратора
-
-Все заявки общежития: статус и назначенный мастер меняются прямо в таблице.
-
-<img src="docs/screenshots/admin-issues.png" alt="Все заявки в панели администратора">
+### Notifications and events
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/screenshots/admin-residents.png" alt="Реестр жильцов"></td>
-    <td width="50%"><img src="docs/screenshots/admin-rooms.png" alt="Реестр комнат"></td>
+    <td width="50%"><img src="docs/screenshots/notifications.png" alt="Notifications"></td>
+    <td width="50%"><img src="docs/screenshots/activities.png" alt="Events"></td>
   </tr>
   <tr>
-    <td align="center"><sub>Жильцы: заселение, выселение и роли</sub></td>
-    <td align="center"><sub>Комнаты: заполненность и список жильцов</sub></td>
-  </tr>
-  <tr>
-    <td width="50%"><img src="docs/screenshots/staff-issue.png" alt="Заявка глазами персонала"></td>
-    <td width="50%"><img src="docs/screenshots/admin-create-event.png" alt="Создание события"></td>
-  </tr>
-  <tr>
-    <td align="center"><sub>Карточка заявки для персонала: статус и мастер</sub></td>
-    <td align="center"><sub>Создание нового события</sub></td>
+    <td align="center"><sub>Notification center with unread messages</sub></td>
+    <td align="center"><sub>Events, registrations and activity points</sub></td>
   </tr>
 </table>
 
-## Архитектура
+### Admin panel
 
-Фронтенд общается только с API Gateway по REST. Gateway проверяет JWT и вызывает нужный сервис по gRPC. Сервисы публикуют доменные события в NATS, а Notification Service превращает их в уведомления для пользователей.
+All dormitory requests: status and assigned worker can be changed right in the table.
+
+<img src="docs/screenshots/admin-issues.png" alt="All requests in the admin panel">
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/admin-residents.png" alt="Residents registry"></td>
+    <td width="50%"><img src="docs/screenshots/admin-rooms.png" alt="Rooms registry"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Residents: room assignment, eviction and roles</sub></td>
+    <td align="center"><sub>Rooms: occupancy and list of residents</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/staff-issue.png" alt="Request as seen by staff"></td>
+    <td width="50%"><img src="docs/screenshots/admin-create-event.png" alt="Creating an event"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Request details for staff: status and worker</sub></td>
+    <td align="center"><sub>Creating a new event</sub></td>
+  </tr>
+</table>
+
+## Architecture
+
+The frontend talks only to the API Gateway over REST. The gateway validates the JWT and calls the right service over gRPC. Services publish domain events to NATS, and the Notification Service turns them into notifications for users.
 
 ```mermaid
 flowchart LR
@@ -165,23 +165,23 @@ flowchart LR
     AUTH & ISSUE & ROOM & NOTIF -. OTLP .-> OTEL
 ```
 
-### Сервисы
+### Services
 
-| Сервис | Порт | Зона ответственности |
+| Service | Port | Responsibility |
 | --- | --- | --- |
-| **API Gateway** | `8080` | Единая REST точка входа, проверка JWT, CORS, трансляция запросов в gRPC |
-| **Auth Service** | `50051` | Регистрация, вход, access и refresh токены, сессии, профиль пользователя |
-| **Issue Service** | `50052` | Заявки, категории, комментарии, мастера и статусы заявок |
-| **File Service** | `50053` | Загрузка файлов в MinIO потоком по gRPC, выдача presigned ссылок |
-| **Room Service** | `50054` | Комнаты, заселение и выселение, роли жильцов, статистика |
-| **Notification Service** | `50055` | События общежития и запись на них, уведомления в приложении и по email |
-| **Frontend** | `3001` | React SPA за nginx, проксирует `/api` в API Gateway |
+| **API Gateway** | `8080` | Single REST entry point, JWT validation, CORS, translating requests to gRPC |
+| **Auth Service** | `50051` | Sign up, sign in, access and refresh tokens, sessions, user profile |
+| **Issue Service** | `50052` | Requests, categories, comments, workers and request statuses |
+| **File Service** | `50053` | Streaming file uploads to MinIO over gRPC, presigned URLs |
+| **Room Service** | `50054` | Rooms, check-in and eviction, resident roles, stats |
+| **Notification Service** | `50055` | Dormitory events and registrations, in-app and email notifications |
+| **Frontend** | `3001` | React SPA behind nginx, proxies `/api` to the API Gateway |
 
-Каждый сервис построен по слоям `transport` (gRPC, NATS), `usecase`, `repository`, `domain` и хранит свои SQL миграции в папке `migrations`. Все сервисы работают с одной базой PostgreSQL, но у каждого свои таблицы и своя таблица истории миграций. Контракты gRPC описаны в Protobuf, сгенерированный Go код подключается модулем `github.com/Garryflop/DormOS-gen-go`.
+Each service is split into `transport` (gRPC, NATS), `usecase`, `repository` and `domain` layers and keeps its own SQL migrations in a `migrations` folder. All services share one PostgreSQL database, but each owns its tables and its own migrations history table. gRPC contracts are defined in Protobuf, and the generated Go code comes from the `github.com/Garryflop/DormOS-gen-go` module.
 
-### События NATS
+### NATS events
 
-| Тема | Источник |
+| Subject | Published by |
 | --- | --- |
 | `issue.created` | Issue Service |
 | `issue.status_changed` | Issue Service |
@@ -191,108 +191,108 @@ flowchart LR
 | `event.created` | Notification Service |
 | `event.cancelled` | Notification Service |
 
-Notification Service подписан на все эти темы и создаёт уведомления для нужных пользователей.
+The Notification Service subscribes to all of these subjects and creates notifications for the relevant users.
 
-## Технологии
+## Tech Stack
 
-| Слой | Стек |
+| Layer | Technologies |
 | --- | --- |
 | Backend | Go 1.25, Go workspaces, gRPC, Protocol Buffers (buf), Gin, pgx, golang-migrate, JWT |
-| Обмен сообщениями | NATS с JetStream |
-| Хранилища | PostgreSQL 15, Redis 7, MinIO (S3 совместимое хранилище файлов) |
+| Messaging | NATS with JetStream |
+| Storage | PostgreSQL 15, Redis 7, MinIO (S3 compatible file storage) |
 | Frontend | React 19, TypeScript, Vite, React Router 7, TanStack Query, Axios, Tailwind CSS 4, lucide-react |
-| Наблюдаемость | OpenTelemetry Collector, Prometheus, Tempo, Loki, Grafana |
-| Тесты | testify, testcontainers-go |
-| Инфраструктура | Docker, Docker Compose, nginx |
+| Observability | OpenTelemetry Collector, Prometheus, Tempo, Loki, Grafana |
+| Testing | testify, testcontainers-go |
+| Infrastructure | Docker, Docker Compose, nginx |
 
-## Структура репозитория
+## Repository Structure
 
 ```text
 .
-├── api-gateway/            REST API на Gin: хендлеры, JWT и CORS middleware
-├── auth-service/           аутентификация, токены, сессии
-├── issue-service/          заявки, комментарии, категории, мастера
-├── room-service/           комнаты, жильцы, роли
-├── file-service/           загрузка файлов в MinIO
-├── notification-service/   события общежития и уведомления
-├── pkg/                    общий код: config, database, grpcutil, nats, redis
-├── frontend/               React + Vite клиент
-├── docs/                   скриншоты и демо для README
-├── grafana/                конфигурация Grafana
-├── docker-compose.yml      весь стек одной командой
-├── Dockerfile              общий multi-stage образ для Go сервисов
-├── go.work                 Go workspace для всех модулей
+├── api-gateway/            REST API on Gin: handlers, JWT and CORS middleware
+├── auth-service/           authentication, tokens, sessions
+├── issue-service/          requests, comments, categories, workers
+├── room-service/           rooms, residents, roles
+├── file-service/           file uploads to MinIO
+├── notification-service/   dormitory events and notifications
+├── pkg/                    shared code: config, database, grpcutil, nats, redis
+├── frontend/               React + Vite client
+├── docs/                   screenshots and demo for this README
+├── grafana/                Grafana configuration
+├── docker-compose.yml      the whole stack in one command
+├── Dockerfile              shared multi-stage image for Go services
+├── go.work                 Go workspace for all modules
 ├── otel-collector-config.yaml, prometheus.yml, tempo.yaml
-└── *.postman_collection.json   коллекции запросов для Postman
+└── *.postman_collection.json   Postman request collections
 ```
 
-Внутри каждого Go сервиса:
+Inside every Go service:
 
 ```text
 <service>/
-├── cmd/main.go             точка входа
+├── cmd/main.go             entry point
 ├── internal/
-│   ├── config/             конфигурация и OpenTelemetry
-│   ├── domain/             сущности и интерфейсы
-│   ├── repository/         работа с PostgreSQL
-│   ├── usecase/            бизнес-логика
-│   └── transport/          gRPC хендлеры и NATS
-└── migrations/             SQL миграции
+│   ├── config/             configuration and OpenTelemetry
+│   ├── domain/             entities and interfaces
+│   ├── repository/         PostgreSQL access
+│   ├── usecase/            business logic
+│   └── transport/          gRPC handlers and NATS
+└── migrations/             SQL migrations
 ```
 
-## Быстрый старт
+## Getting Started
 
-### Требования
+### Prerequisites
 
-- Docker и Docker Compose v2
-- Go 1.25 или новее (нужен для подготовки `vendor`)
-- Node.js 20 или новее (только для локальной разработки фронтенда)
+- Docker with Docker Compose v2
+- Go 1.25 or newer (needed to prepare `vendor`)
+- Node.js 20 or newer (only for local frontend development)
 
-### Запуск всего стека
+### Run the whole stack
 
 ```bash
 git clone https://github.com/Garryflop/DormOS.git
 cd DormOS
 
-# Docker образы собираются офлайн из общей папки vendor
+# Docker images are built offline from the shared vendor folder
 go work vendor
 
 docker compose up -d --build
 ```
 
-Миграции применяются автоматически отдельными контейнерами `*-migrate` до старта сервисов. Значения по умолчанию (пароли PostgreSQL, Redis, MinIO, JWT секрет) заданы в `docker-compose.yml`, их можно переопределить через `.env`, пример лежит в `.env.example`.
+Migrations are applied automatically by dedicated `*-migrate` containers before the services start. Defaults (PostgreSQL, Redis and MinIO passwords, JWT secret) are set in `docker-compose.yml` and can be overridden in `.env`, see `.env.example`.
 
-После запуска доступны:
+Once the stack is up:
 
-| Адрес | Что это |
+| URL | What it is |
 | --- | --- |
-| http://localhost:3001 | Веб-интерфейс DormOS |
-| http://localhost:8080/health | Health check API Gateway |
+| http://localhost:3001 | DormOS web interface |
+| http://localhost:8080/health | API Gateway health check |
 | http://localhost:3000 | Grafana |
 | http://localhost:9090 | Prometheus |
-| http://localhost:9001 | Консоль MinIO (`admin` / `admin123`) |
-| http://localhost:8222 | Мониторинг NATS |
+| http://localhost:9001 | MinIO console (`admin` / `admin123`) |
+| http://localhost:8222 | NATS monitoring |
 
-Для удобства есть `Makefile`:
+There is also a `Makefile`:
 
 ```bash
 make up      # docker-compose up -d
-make down    # остановить контейнеры
-make clean   # остановить и удалить volumes
+make down    # stop the containers
+make clean   # stop and remove volumes
 ```
 
-### Первый администратор
+### First administrator
 
-Регистрация через интерфейс создаёт пользователя с ролью `student`. Чтобы выдать себе права администратора, выполни:
+Signing up through the interface creates a user with the `student` role. To grant yourself admin rights, run:
 
 ```bash
 docker compose exec postgres psql -U dormos -d dormos \
   -c "UPDATE users SET role = 'admin' WHERE email = 'you@example.com';"
 ```
 
-После этого войди в систему заново. Остальные роли и заселение по комнатам настраиваются уже в **Admin Panel**.
+Then sign in again. Other roles and room assignments are managed from the **Admin Panel**.
 
-### Локальная разработка фронтенда
+### Local frontend development
 
 ```bash
 cd frontend
@@ -300,104 +300,104 @@ npm install
 npm run dev
 ```
 
-Vite поднимется на http://localhost:5173 и будет ходить в API по адресу из `VITE_API_URL` (по умолчанию `http://localhost:8080/api/v1`).
+Vite starts on http://localhost:5173 and calls the API at `VITE_API_URL` (defaults to `http://localhost:8080/api/v1`).
 
 ## REST API
 
-Базовый путь: `/api/v1`. Все запросы, кроме регистрации, входа и обновления токена, требуют заголовок `Authorization: Bearer <access_token>`. Готовые коллекции запросов лежат в корне репозитория: `DormOS.postman_collection.json` и `DormOS_Student_Scope.postman_collection.json`.
+Base path: `/api/v1`. Every request except sign up, sign in and token refresh requires an `Authorization: Bearer <access_token>` header. Ready-made request collections are in the repository root: `DormOS.postman_collection.json` and `DormOS_Student_Scope.postman_collection.json`.
 
 <details>
-<summary><b>Список эндпоинтов</b></summary>
+<summary><b>Endpoint list</b></summary>
 
-#### Аутентификация
+#### Auth
 
-| Метод | Путь | Описание |
+| Method | Path | Description |
 | --- | --- | --- |
-| `POST` | `/auth/register` | Регистрация |
-| `POST` | `/auth/login` | Вход, выдача access и refresh токенов |
-| `POST` | `/auth/refresh` | Обновление access токена |
-| `GET` | `/auth/profile` | Профиль текущего пользователя |
-| `POST` | `/auth/logout` | Выход и отзыв сессии |
-| `POST` | `/auth/validate` | Проверка токена |
+| `POST` | `/auth/register` | Sign up |
+| `POST` | `/auth/login` | Sign in, returns access and refresh tokens |
+| `POST` | `/auth/refresh` | Refresh the access token |
+| `GET` | `/auth/profile` | Current user profile |
+| `POST` | `/auth/logout` | Sign out and revoke the session |
+| `POST` | `/auth/validate` | Validate a token |
 
-#### Заявки
+#### Requests
 
-| Метод | Путь | Описание |
+| Method | Path | Description |
 | --- | --- | --- |
-| `POST` | `/issues` | Создать заявку |
-| `GET` | `/issues/my` | Мои заявки |
-| `GET` | `/issues` | Все заявки (персонал) |
-| `GET` | `/issues/:id` | Заявка по id |
-| `PATCH` | `/issues/:id/status` | Сменить статус |
-| `PATCH` | `/issues/:id/assign` | Назначить мастера |
-| `DELETE` | `/issues/:id` | Удалить заявку |
-| `GET` | `/issues/:id/comments` | Комментарии к заявке |
-| `POST` | `/issues/:id/comments` | Добавить комментарий |
-| `GET` | `/issues/workers` | Список мастеров |
-| `GET` | `/categories` | Категории заявок |
-| `POST` | `/issues/categories` | Создать категорию |
+| `POST` | `/issues` | Create a request |
+| `GET` | `/issues/my` | My requests |
+| `GET` | `/issues` | All requests (staff) |
+| `GET` | `/issues/:id` | Request by id |
+| `PATCH` | `/issues/:id/status` | Change status |
+| `PATCH` | `/issues/:id/assign` | Assign a worker |
+| `DELETE` | `/issues/:id` | Delete a request |
+| `GET` | `/issues/:id/comments` | Request comments |
+| `POST` | `/issues/:id/comments` | Add a comment |
+| `GET` | `/issues/workers` | List workers |
+| `GET` | `/categories` | Request categories |
+| `POST` | `/issues/categories` | Create a category |
 
-#### Комнаты и жильцы
+#### Rooms and residents
 
-| Метод | Путь | Описание |
+| Method | Path | Description |
 | --- | --- | --- |
-| `GET` | `/rooms` | Список комнат (фильтр `?floor=`) |
-| `POST` | `/rooms` | Создать комнату |
-| `GET` | `/rooms/:id` | Комната по id |
-| `GET` | `/residents` | Список жильцов (фильтр `?role=`) |
-| `POST` | `/residents` | Заселить жильца в комнату |
-| `GET` | `/residents/:user_id` | Жилец по id пользователя |
-| `DELETE` | `/residents/:user_id` | Выселить жильца |
-| `PATCH` | `/residents/:user_id/role` | Сменить роль |
-| `GET` | `/dashboard/stats` | Статистика по комнатам и жильцам |
+| `GET` | `/rooms` | List rooms (filter `?floor=`) |
+| `POST` | `/rooms` | Create a room |
+| `GET` | `/rooms/:id` | Room by id |
+| `GET` | `/residents` | List residents (filter `?role=`) |
+| `POST` | `/residents` | Assign a resident to a room |
+| `GET` | `/residents/:user_id` | Resident by user id |
+| `DELETE` | `/residents/:user_id` | Evict a resident |
+| `PATCH` | `/residents/:user_id/role` | Change role |
+| `GET` | `/dashboard/stats` | Room and resident stats |
 
-#### Файлы
+#### Files
 
-| Метод | Путь | Описание |
+| Method | Path | Description |
 | --- | --- | --- |
-| `POST` | `/files/upload` | Загрузить файл (`multipart/form-data`) |
-| `GET` | `/files/:id/url` | Получить ссылку на файл |
-| `DELETE` | `/files/:id` | Удалить файл |
+| `POST` | `/files/upload` | Upload a file (`multipart/form-data`) |
+| `GET` | `/files/:id/url` | Get a file URL |
+| `DELETE` | `/files/:id` | Delete a file |
 
-#### События
+#### Events
 
-| Метод | Путь | Описание |
+| Method | Path | Description |
 | --- | --- | --- |
-| `GET` | `/events` | Список событий |
-| `POST` | `/events` | Создать событие |
-| `PUT` | `/events/:id` | Обновить событие |
-| `DELETE` | `/events/:id` | Удалить событие |
-| `POST` | `/events/:id/register` | Записаться на событие |
-| `POST` | `/events/:id/cancel` | Отменить запись |
+| `GET` | `/events` | List events |
+| `POST` | `/events` | Create an event |
+| `PUT` | `/events/:id` | Update an event |
+| `DELETE` | `/events/:id` | Delete an event |
+| `POST` | `/events/:id/register` | Register for an event |
+| `POST` | `/events/:id/cancel` | Cancel a registration |
 
-#### Уведомления
+#### Notifications
 
-| Метод | Путь | Описание |
+| Method | Path | Description |
 | --- | --- | --- |
-| `GET` | `/notifications` | Уведомления пользователя |
-| `POST` | `/notifications` | Отправить уведомление |
-| `PATCH` | `/notifications/:id/read` | Отметить прочитанным |
-| `POST` | `/notifications/read-all` | Отметить все прочитанными |
+| `GET` | `/notifications` | User notifications |
+| `POST` | `/notifications` | Send a notification |
+| `PATCH` | `/notifications/:id/read` | Mark as read |
+| `POST` | `/notifications/read-all` | Mark all as read |
 
 </details>
 
-## Наблюдаемость
+## Observability
 
-Сервисы отправляют трейсы и метрики по OTLP в OpenTelemetry Collector (`4317` gRPC, `4318` HTTP). Collector раскладывает данные по хранилищам:
+Services send traces and metrics over OTLP to the OpenTelemetry Collector (`4317` gRPC, `4318` HTTP). The collector routes the data:
 
-- **трейсы** уходят в Tempo,
-- **метрики** публикуются на `:8889` и собираются Prometheus,
-- **логи** отправляются в Loki.
+- **traces** go to Tempo,
+- **metrics** are exposed on `:8889` and scraped by Prometheus,
+- **logs** are shipped to Loki.
 
-Всё это смотрится в Grafana на http://localhost:3000, анонимный доступ включён.
+Everything can be explored in Grafana at http://localhost:3000, anonymous access is enabled.
 
-## Тесты
+## Tests
 
-Тесты лежат рядом с кодом каждого сервиса:
+Tests live next to the code of each service:
 
-- unit тесты бизнес-логики (`usecase`) в auth, issue, room и notification сервисах;
-- тесты gRPC хендлеров в room и file сервисах;
-- интеграционные тесты репозиториев issue и file сервисов на testcontainers, для них нужен запущенный Docker.
+- unit tests for business logic (`usecase`) in the auth, issue, room and notification services;
+- gRPC handler tests in the room and file services;
+- repository integration tests in the issue and file services built on testcontainers, they need a running Docker.
 
 ```bash
 cd room-service
